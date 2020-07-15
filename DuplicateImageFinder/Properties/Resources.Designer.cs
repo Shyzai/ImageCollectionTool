@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace DuplicateImageFinder.Properties
+namespace ImageCollectionTool.Properties
 {
 
 

@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29424.173
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DuplicateImageFinder", "DuplicateImageFinder\DuplicateImageFinder.csproj", "{D9445DC5-54F7-40B7-A7CA-3F158B78BD3B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImageCollectionTool", "DuplicateImageFinder\ImageCollectionTool.csproj", "{D9445DC5-54F7-40B7-A7CA-3F158B78BD3B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

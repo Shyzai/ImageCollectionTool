@@ -10,7 +10,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Input;
 
-namespace DuplicateImageFinder
+namespace ImageCollectionTool
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -18,9 +18,11 @@ namespace DuplicateImageFinder
     public partial class MainWindow : Window
     {
         Configuration configFile;
-        string targetFolder = "";
-        string[] files = null;
-        const float similarityThreshold = .9997f;
+        string targetFolder;
+        string duplicatesFolder;
+        string[] files;
+
+        const float similarityThreshold = .9998f;
 
         public MainWindow()
         {
@@ -72,13 +74,10 @@ namespace DuplicateImageFinder
             {
                 if (string.IsNullOrEmpty(targetFolder)) throw new Exception("Folder was not selected.");
 
-                #region Creating the working directory and copying relevant images
+                #region Finding relevant files
 
                 mainTextBox.Text += "Searching in: " + targetFolder + "\n";
                 string keyword = commonWordsTextBox.Text;
-
-                string tempComparisonDir = targetFolder + "\\Comparing" + keyword + "Images";
-                Directory.CreateDirectory(tempComparisonDir);
 
                 files = null;
 
@@ -86,20 +85,13 @@ namespace DuplicateImageFinder
                 {
                     files = Directory.GetFiles(targetFolder, keyword + "_*.*");
 
-                    mainTextBox.Text += "Found " + files.Length + " files with the word '" + keyword + "'\n";
+                    mainTextBox.Text += "Found " + files.Length + " files with the word '" + keyword + "'\n\n";
                 }
                 else
                 {
-                    System.Windows.Forms.MessageBox.Show("Common word required");
+                    throw new Exception("Common word required");
                     //files = Directory.GetFiles(targetFolder);
                     //mainTextBox.Text += "Found " + files.Length + " files in " + targetFolder + "\n";
-                }
-
-                foreach (string fileName in files)
-                {
-                    string actualName = fileName.Substring(fileName.LastIndexOf("\\") + 1);
-
-                    File.Copy(fileName, tempComparisonDir + "\\" + actualName);
                 }
 
                 #endregion
@@ -114,18 +106,18 @@ namespace DuplicateImageFinder
                 {
                     //string actualName = fileName.Substring(fileName.LastIndexOf("\\") + 1);
                     //File.Copy(fileName, tempComparisonDir + "\\" + actualName);
-                    string actualName = files[i].Substring(files[i].LastIndexOf("\\") + 1);
+                    string fileName = files[i].Substring(files[i].LastIndexOf("\\") + 1);
 
                     /* Accounting for similar images following pattern 'Name_1a.jpg', 'Name_1b.jpg', etc... */
                     /* Case 1: First image in a sequence (eg. Name_1a) */
                     /* Case 2: All following images in a sequence up to 'z' */
                     /* Case 3: Normal numbered images */
-                    if (Regex.IsMatch(actualName, @"\w*_\d*a.*"))
+                    if (Regex.IsMatch(fileName, @"\w*_\d*a.*"))
                     {
-                        imageNameNums[i] = GetImageNumber(actualName.Remove(actualName.IndexOf(".") - 1, 1));
+                        imageNameNums[i] = GetImageNumber(fileName.Remove(fileName.IndexOf(".") - 1, 1));
                         referenceNums[i] = i + 1 - numIgnoredImages;
                     }
-                    else if (Regex.IsMatch(actualName, @"\w*_\d*[b-z].*"))
+                    else if (Regex.IsMatch(fileName, @"\w*_\d*[b-z].*"))
                     {
                         imageNameNums[i] = imageNameNums[i - 1];
                         referenceNums[i] = referenceNums[i - 1];
@@ -133,7 +125,7 @@ namespace DuplicateImageFinder
                     }
                     else
                     {
-                        imageNameNums[i] = GetImageNumber(actualName);
+                        imageNameNums[i] = GetImageNumber(fileName);
                         referenceNums[i] = i + 1 - numIgnoredImages;
                     }
                 }
@@ -144,36 +136,45 @@ namespace DuplicateImageFinder
                 if (differenceQuery.Count() > 0)
                 {
                     mainTextBox.Text += "Images are missing number(s): \n";
+
                     foreach (int n in differenceQuery)
                     {
-                        mainTextBox.Text += n + "\n";
+                        mainTextBox.Text += "> " + n + "\n";
                     }
                 }
                 else
                 {
-                    mainTextBox.Text += ">> All images are correctly numbered\n";
+                    mainTextBox.Text += "> All images are correctly numbered\n";
                 }
-                
+                mainTextBox.Text += "\n";
+
                 #endregion
 
                 #region Finding duplicate images by comparing average Hue-Saturation-Brightness values
+
+                duplicatesFolder = targetFolder + "\\Potential" + keyword + "Duplicates";
+                if (Directory.Exists(duplicatesFolder))
+                {
+                    Directory.Delete(duplicatesFolder, true);
+                }
 
                 if (findDuplicatesCheckBox.IsChecked == true)
                 {
                     if (files.Length > 1)
                     {
-                        FindDuplicateImages(tempComparisonDir);
+                        Directory.CreateDirectory(duplicatesFolder);
+
+                        FindDuplicateImages();
                     }
                     else
                     {
                         System.Windows.Forms.MessageBox.Show("Not enough images to do comparisons");
                     }
-                    
                 }
-                
-                #endregion
 
-                Directory.Delete(tempComparisonDir, true);
+                mainTextBox.Text += "=======================================================\n";
+
+                #endregion
             }
             catch (Exception ex)
             {
@@ -181,12 +182,11 @@ namespace DuplicateImageFinder
             }
         }
 
-        private void FindDuplicateImages(string dir)
+        private void FindDuplicateImages()
         {
             try
             {
-                /* Updating file paths */
-                files = Directory.GetFiles(dir);
+                bool foundDuplicate = false;
 
                 /* SortedList sorts by key rather than value. */
                 SortedList<float, string> HSBValues = new SortedList<float, string>();
@@ -217,29 +217,33 @@ namespace DuplicateImageFinder
                     }
                 }
 
-                int maxNumComparisons = (HSBValues.Count < 6) ? HSBValues.Count - 1 : 6;
+                int maxNumComparisons = (HSBValues.Count < 5) ? HSBValues.Count - 1 : 5;
 
+                float similarity = -1f;
                 int numComparisons = 0;
                 for (int i = 0; i <= HSBValues.Count - 1; i++)
                 {
-                    mainTextBox.Text += HSBValues.Values[i] + " - " + HSBValues.Keys[i] + "\n";
+                    //mainTextBox.Text += HSBValues.Values[i] + " - " + HSBValues.Keys[i] + "\n";
 
-                    if (maxNumComparisons + i >= HSBValues.Count)
-                    {
-                        numComparisons = HSBValues.Count - i - 1;
-                    }
-                    else
-                    {
-                        numComparisons = maxNumComparisons;
-                    }
+                    numComparisons = (maxNumComparisons + i >= HSBValues.Count) ? HSBValues.Count - i - 1 : maxNumComparisons;
 
                     for (int j = 1; j <= numComparisons; j++)
                     {
-                        if (IsSameImage(HSBValues.Keys[i], HSBValues.Keys[i + j]))
+                        if (IsSameImage(HSBValues.Keys[i], HSBValues.Keys[i + j], out similarity))
                         {
-                            mainTextBox.Text += "Potential match found: " + HSBValues.Values[i] + " and " + HSBValues.Values[i + j] + "\n";
+                            foundDuplicate = true;
+                            mainTextBox.Text += "> Potential match found (" + similarity * 100f + "): " + HSBValues.Values[i] + " and " + HSBValues.Values[i + j] + "\n";
+
+                            if (!File.Exists(duplicatesFolder + "\\" + HSBValues.Values[i])) File.Copy(targetFolder + "\\" + HSBValues.Values[i], duplicatesFolder + "\\" + HSBValues.Values[i]);
+                            if (!File.Exists(duplicatesFolder + "\\" + HSBValues.Values[i + j])) File.Copy(targetFolder + "\\" + HSBValues.Values[i + j], duplicatesFolder + "\\" + HSBValues.Values[i + j]);
                         }
                     }
+                }
+
+                if (!foundDuplicate)
+                {
+                    mainTextBox.Text += "> No duplicates found (" + similarityThreshold * 100f + "% confidence)\n";
+                    Directory.Delete(duplicatesFolder);
                 }
             }
             catch (Exception ex)
@@ -283,9 +287,10 @@ namespace DuplicateImageFinder
             return ans;
         }
 
-        private bool IsSameImage(float brightness1, float brightness2)
+        private bool IsSameImage(float brightness1, float brightness2, out float percent)
         {
             bool equals = false;
+            percent = -1f;
 
             try
             {
@@ -300,6 +305,7 @@ namespace DuplicateImageFinder
                 }
 
                 if (percentSimilar >= similarityThreshold) equals = true;
+                percent = percentSimilar;
             }
             catch (Exception ex)
             {

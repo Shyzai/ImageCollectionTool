@@ -1,7 +1,7 @@
-﻿<Application x:Class="DuplicateImageFinder.App"
+﻿<Application x:Class="ImageCollectionTool.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:DuplicateImageFinder"
+             xmlns:local="clr-namespace:ImageCollectionTool"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
          

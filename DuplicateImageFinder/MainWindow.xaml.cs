@@ -6,8 +6,6 @@ using System.Linq;
 using System.Configuration;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Windows.Input;
 
 namespace ImageCollectionTool
@@ -21,8 +19,6 @@ namespace ImageCollectionTool
         string targetFolder;
         string duplicatesFolder;
         string[] files;
-
-        const float similarityThreshold = .9998f;
 
         public MainWindow()
         {
@@ -152,7 +148,7 @@ namespace ImageCollectionTool
 
                 #region Finding duplicate images by comparing average Hue-Saturation-Brightness values
 
-                duplicatesFolder = targetFolder + "\\Potential" + keyword + "Duplicates";
+                duplicatesFolder = targetFolder + "\\Potential_" + keyword + "_Duplicates";
                 if (Directory.Exists(duplicatesFolder))
                 {
                     Directory.Delete(duplicatesFolder, true);
@@ -186,64 +182,24 @@ namespace ImageCollectionTool
         {
             try
             {
-                bool foundDuplicate = false;
+                var results = ImageMatcher.FindDuplicates(files);
 
-                /* SortedList sorts by key rather than value. */
-                SortedList<float, string> HSBValues = new SortedList<float, string>();
-
-                for (int i = 0; i < files.Length; i++)
+                if (results.Count == 0)
                 {
-                    string tempString = GetFileNameFromPath(files[i]);
-
-                    try
-                    {
-                        using (Bitmap temp = new Bitmap(files[i]))
-                        {
-                            float tempFloat = GetAverageBrightness(temp);
-
-                            if (tempFloat > 0f && tempFloat < 1f)
-                            {
-                                HSBValues.Add(tempFloat, tempString);
-                            }
-                            else
-                            {
-                                mainTextBox.Text += "Error with getting" + files[i] + " brightness. Ouside range.\n";
-                            }
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        mainTextBox.Text += "Skipping " + tempString + ". Error creating bitmap from file.\n";
-                    }
-                }
-
-                int maxNumComparisons = (HSBValues.Count < 5) ? HSBValues.Count - 1 : 5;
-
-                float similarity = -1f;
-                int numComparisons = 0;
-                for (int i = 0; i <= HSBValues.Count - 1; i++)
-                {
-                    //mainTextBox.Text += HSBValues.Values[i] + " - " + HSBValues.Keys[i] + "\n";
-
-                    numComparisons = (maxNumComparisons + i >= HSBValues.Count) ? HSBValues.Count - i - 1 : maxNumComparisons;
-
-                    for (int j = 1; j <= numComparisons; j++)
-                    {
-                        if (IsSameImage(HSBValues.Keys[i], HSBValues.Keys[i + j], out similarity))
-                        {
-                            foundDuplicate = true;
-                            mainTextBox.Text += "> Potential match found (" + similarity * 100f + "): " + HSBValues.Values[i] + " and " + HSBValues.Values[i + j] + "\n";
-
-                            if (!File.Exists(duplicatesFolder + "\\" + HSBValues.Values[i])) File.Copy(targetFolder + "\\" + HSBValues.Values[i], duplicatesFolder + "\\" + HSBValues.Values[i]);
-                            if (!File.Exists(duplicatesFolder + "\\" + HSBValues.Values[i + j])) File.Copy(targetFolder + "\\" + HSBValues.Values[i + j], duplicatesFolder + "\\" + HSBValues.Values[i + j]);
-                        }
-                    }
-                }
-
-                if (!foundDuplicate)
-                {
-                    mainTextBox.Text += "> No duplicates found (" + similarityThreshold * 100f + "% confidence)\n";
+                    mainTextBox.Text += "> No duplicates found\n";
                     Directory.Delete(duplicatesFolder);
+                    return;
+                }
+
+                foreach (var (path1, path2, goodMatches) in results)
+                {
+                    string name1 = GetFileNameFromPath(path1);
+                    string name2 = GetFileNameFromPath(path2);
+
+                    mainTextBox.Text += "> Potential match found (" + goodMatches + " feature matches): " + name1 + " and " + name2 + "\n";
+
+                    if (!File.Exists(duplicatesFolder + "\\" + name1)) File.Copy(path1, duplicatesFolder + "\\" + name1);
+                    if (!File.Exists(duplicatesFolder + "\\" + name2)) File.Copy(path2, duplicatesFolder + "\\" + name2);
                 }
             }
             catch (Exception ex)
@@ -282,60 +238,6 @@ namespace ImageCollectionTool
             catch (Exception ex)
             {
                 System.Windows.Forms.MessageBox.Show("Error parsing imageName: " + ex.Message);
-            }
-
-            return ans;
-        }
-
-        private bool IsSameImage(float brightness1, float brightness2, out float percent)
-        {
-            bool equals = false;
-            percent = -1f;
-
-            try
-            {
-                float percentSimilar = 0f;
-                if (brightness1 > brightness2)
-                {
-                    percentSimilar = brightness2 / brightness1;
-                }
-                else
-                {
-                    percentSimilar = brightness1 / brightness2;
-                }
-
-                if (percentSimilar >= similarityThreshold) equals = true;
-                percent = percentSimilar;
-            }
-            catch (Exception ex)
-            {
-                System.Windows.Forms.MessageBox.Show("sameImage exception: " + ex.Message);
-            }
-
-            return equals;
-        }
-
-        public float GetAverageBrightness(Bitmap bmpSource)
-        {
-            float ans = 0f;
-            try
-            {
-                float sum = 0f;
-                using (Bitmap bmpMin = new Bitmap(bmpSource, new System.Drawing.Size(16, 16)))
-                {
-                    for (int j = 0; j < bmpMin.Height; j++)
-                    {
-                        for (int i = 0; i < bmpMin.Width; i++)
-                        {
-                            sum += bmpMin.GetPixel(i, j).GetBrightness();
-                        }
-                    }
-                    ans = sum / 256f;
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Windows.Forms.MessageBox.Show("GetAverageBrightness exception: " + ex.Message);
             }
 
             return ans;

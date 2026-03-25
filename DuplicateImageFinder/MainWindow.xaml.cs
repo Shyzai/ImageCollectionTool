@@ -19,6 +19,8 @@ namespace ImageCollectionTool
     {
         Configuration configFile;
         string targetFolder;
+        List<(string, string, int)> _lastDuplicates = [];
+        string _lastDuplicatesFolder;
 
         private static readonly Regex s_sequenceFirstRegex     = new Regex(@"\w*_\d*a.*",     RegexOptions.Compiled);
         private static readonly Regex s_sequenceFollowingRegex = new Regex(@"\w*_\d*[b-z].*", RegexOptions.Compiled);
@@ -76,13 +78,16 @@ namespace ImageCollectionTool
                 string keyword = commonWordsTextBox.Text;
                 if (string.IsNullOrWhiteSpace(keyword)) throw new Exception("Common word required");
 
-                bool findDups = findDuplicatesCheckBox.IsChecked == true;
+                bool findDuplicates = findDuplicatesCheckBox.IsChecked == true;
                 string folder = targetFolder; // capture before leaving the UI thread
 
                 RunButton.IsEnabled = false;
 
-                string output = await Task.Run(() => RunAnalysis(folder, keyword, findDups));
+                var (output, duplicates, duplicatesFolder) = await Task.Run(() => RunAnalysis(folder, keyword, findDuplicates));
                 mainTextBox.Text += output;
+                _lastDuplicates = duplicates;
+                _lastDuplicatesFolder = duplicatesFolder;
+                DeleteDuplicatesButton.IsEnabled = duplicates.Count > 0;
             }
             catch (Exception ex)
             {
@@ -94,9 +99,10 @@ namespace ImageCollectionTool
             }
         }
 
-        private static string RunAnalysis(string targetFolder, string keyword, bool findDuplicates)
+        private static (string Output, List<(string, string, int)> Duplicates, string DuplicatesFolder) RunAnalysis(string targetFolder, string keyword, bool findDuplicates)
         {
             var sb = new StringBuilder();
+            List<(string, string, int)> duplicates = [];
 
             #region Finding relevant files
 
@@ -160,16 +166,16 @@ namespace ImageCollectionTool
 
             #region Finding duplicate images
 
-            string dupsFolder = targetFolder + "\\Potential_" + keyword + "_Duplicates";
-            if (Directory.Exists(dupsFolder))
-                Directory.Delete(dupsFolder, true);
+            string duplicatesFolder = targetFolder + "\\Potential_" + keyword + "_Duplicates";
+            if (Directory.Exists(duplicatesFolder))
+                Directory.Delete(duplicatesFolder, true);
 
             if (findDuplicates)
             {
                 if (files.Length > 1)
                 {
-                    Directory.CreateDirectory(dupsFolder);
-                    FindDuplicateImages(files, dupsFolder, sb);
+                    Directory.CreateDirectory(duplicatesFolder);
+                    duplicates = FindDuplicateImages(files, duplicatesFolder, sb);
                 }
                 else
                 {
@@ -181,10 +187,10 @@ namespace ImageCollectionTool
 
             #endregion
 
-            return sb.ToString();
+            return (sb.ToString(), duplicates, duplicatesFolder);
         }
 
-        private static void FindDuplicateImages(string[] files, string duplicatesFolder, StringBuilder sb)
+        private static List<(string, string, int)> FindDuplicateImages(string[] files, string duplicatesFolder, StringBuilder sb)
         {
             var results = ImageMatcher.FindDuplicates(files);
 
@@ -192,7 +198,7 @@ namespace ImageCollectionTool
             {
                 sb.Append("> No duplicates found\n");
                 Directory.Delete(duplicatesFolder);
-                return;
+                return results;
             }
 
             foreach (var (path1, path2, goodMatches) in results)
@@ -206,6 +212,8 @@ namespace ImageCollectionTool
                 if (!File.Exists(duplicatesFolder + "\\" + name1)) File.Copy(path1, duplicatesFolder + "\\" + name1);
                 if (!File.Exists(duplicatesFolder + "\\" + name2)) File.Copy(path2, duplicatesFolder + "\\" + name2);
             }
+
+            return results;
         }
 
         private static int GetImageNumber(string imageName)
@@ -215,6 +223,37 @@ namespace ImageCollectionTool
             if (underscoreIdx < 0) return -1;
             int.TryParse(nameWithoutExt.Substring(underscoreIdx + 1), out int ans);
             return ans;
+        }
+
+        private void DeleteDuplicates_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                foreach (var (path1, path2, _) in _lastDuplicates)
+                {
+                    string pathToDelete = GetImageNumber(Path.GetFileName(path1)) >= GetImageNumber(Path.GetFileName(path2)) ? path1 : path2;
+                    string nameToDelete = Path.GetFileName(pathToDelete);
+
+                    string pathToKeep = pathToDelete == path1 ? path2 : path1;
+                    string nameToKeep = Path.GetFileName(pathToKeep);
+
+                    string duplicatesCopyToDelete = Path.Combine(_lastDuplicatesFolder, nameToDelete);
+                    string duplicatesCopyToKeep = Path.Combine(_lastDuplicatesFolder, nameToKeep);
+                    if (File.Exists(duplicatesCopyToDelete)) File.Delete(duplicatesCopyToDelete);
+                    if (File.Exists(duplicatesCopyToKeep)) File.Delete(duplicatesCopyToKeep);
+                    if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
+                }
+
+                if (Directory.Exists(_lastDuplicatesFolder) && !Directory.EnumerateFiles(_lastDuplicatesFolder).Any())
+                    Directory.Delete(_lastDuplicatesFolder);
+
+                mainTextBox.Text += "> Deleted duplicate files.\n";
+                DeleteDuplicatesButton.IsEnabled = false;
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Forms.MessageBox.Show("DeleteDuplicates_Click exception: " + ex.Message);
+            }
         }
 
         private void commonWordsTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)

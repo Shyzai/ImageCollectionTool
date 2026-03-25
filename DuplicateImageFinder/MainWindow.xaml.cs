@@ -19,7 +19,7 @@ namespace ImageCollectionTool
     {
         Configuration configFile;
         string targetFolder;
-        List<(string, string, int)> _lastDuplicates = [];
+        List<(string Path1, string Path2, int GoodMatches)> _lastDuplicates = [];
         string _lastDuplicatesFolder;
         List<(string OldPath, int NewNumber)> _lastNumberingFixes = [];
 
@@ -34,10 +34,8 @@ namespace ImageCollectionTool
             {
                 configFile = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
 
-                string tempFolderName = configFile.AppSettings.Settings["Search Directory"].Value ?? "";
-
-                targetFolder = tempFolderName;
-                folderText.Text += tempFolderName;
+                targetFolder = configFile.AppSettings.Settings["Search Directory"].Value ?? "";
+                folderText.Text += targetFolder;
             }
             catch (Exception ex)
             {
@@ -49,19 +47,17 @@ namespace ImageCollectionTool
         {
             try
             {
-                using (var fbd = new FolderBrowserDialog())
+                using var fbd = new FolderBrowserDialog();
+                DialogResult result = fbd.ShowDialog();
+
+                if (!string.IsNullOrEmpty(fbd.SelectedPath) && result == System.Windows.Forms.DialogResult.OK)
                 {
-                    DialogResult result = fbd.ShowDialog();
+                    configFile.AppSettings.Settings["Search Directory"].Value = fbd.SelectedPath;
+                    targetFolder = fbd.SelectedPath;
+                    folderText.Text = "Current Folder: " + fbd.SelectedPath;
 
-                    if (!string.IsNullOrEmpty(fbd.SelectedPath) && result == System.Windows.Forms.DialogResult.OK)
-                    {
-                        configFile.AppSettings.Settings["Search Directory"].Value = fbd.SelectedPath;
-                        targetFolder = fbd.SelectedPath;
-                        folderText.Text = "Current Folder: " + fbd.SelectedPath;
-
-                        configFile.Save(ConfigurationSaveMode.Modified);
-                        ConfigurationManager.RefreshSection(configFile.AppSettings.SectionInformation.Name);
-                    }
+                    configFile.Save(ConfigurationSaveMode.Modified);
+                    ConfigurationManager.RefreshSection(configFile.AppSettings.SectionInformation.Name);
                 }
             }
             catch (Exception ex)
@@ -102,10 +98,11 @@ namespace ImageCollectionTool
             }
         }
 
-        private static (string Output, List<(string, string, int)> Duplicates, string DuplicatesFolder, List<(string OldPath, int NewNumber)> NumberingFixes) RunAnalysis(string targetFolder, string keyword, bool findDuplicates)
+        private static (string Output, List<(string Path1, string Path2, int GoodMatches)> Duplicates, string DuplicatesFolder,
+        List<(string OldPath, int NewNumber)> NumberingFixes) RunAnalysis(string targetFolder, string keyword, bool findDuplicates)
         {
             var sb = new StringBuilder();
-            List<(string, string, int)> duplicates = [];
+            List<(string Path1, string Path2, int GoodMatches)> duplicates = [];
 
             #region Finding relevant files
 
@@ -124,14 +121,9 @@ namespace ImageCollectionTool
 
             for (int i = 0; i < files.Length; i++)
             {
-                //string actualName = fileName.Substring(fileName.LastIndexOf("\\") + 1);
-                //File.Copy(fileName, tempComparisonDir + "\\" + actualName);
                 string fileName = Path.GetFileName(files[i]);
 
-                /* Accounting for similar images following pattern 'Name_1a.jpg', 'Name_1b.jpg', etc... */
-                /* Case 1: First image in a sequence (eg. Name_1a) */
-                /* Case 2: All following images in a sequence up to 'z' */
-                /* Case 3: Normal numbered images */
+                // Accounting for similar images following pattern 'Name_1a.jpg', 'Name_1b.jpg', etc.
                 if (s_sequenceFirstRegex.IsMatch(fileName))
                 {
                     imageNameNums[i] = GetImageNumber(fileName.Remove(fileName.IndexOf(".") - 1, 1));
@@ -207,7 +199,7 @@ namespace ImageCollectionTool
             return (sb.ToString(), duplicates, duplicatesFolder, numberingFixes);
         }
 
-        private static List<(string, string, int)> FindDuplicateImages(string[] files, string duplicatesFolder, StringBuilder sb)
+        private static List<(string Path1, string Path2, int GoodMatches)> FindDuplicateImages(string[] files, string duplicatesFolder, StringBuilder sb)
         {
             var results = ImageMatcher.FindDuplicates(files);
 

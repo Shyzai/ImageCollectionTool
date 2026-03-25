@@ -126,7 +126,7 @@ namespace ImageCollectionTool
                 // Accounting for similar images following pattern 'Name_1a.jpg', 'Name_1b.jpg', etc.
                 if (s_sequenceFirstRegex.IsMatch(fileName))
                 {
-                    imageNameNums[i] = GetImageNumber(fileName.Remove(fileName.IndexOf(".") - 1, 1));
+                    imageNameNums[i] = ImageMatcher.GetImageNumber(fileName.Remove(fileName.IndexOf(".") - 1, 1));
                     referenceNums[i] = i + 1 - numIgnoredImages;
                 }
                 else if (s_sequenceFollowingRegex.IsMatch(fileName))
@@ -137,7 +137,7 @@ namespace ImageCollectionTool
                 }
                 else
                 {
-                    imageNameNums[i] = GetImageNumber(fileName);
+                    imageNameNums[i] = ImageMatcher.GetImageNumber(fileName);
                     referenceNums[i] = i + 1 - numIgnoredImages;
                 }
             }
@@ -225,23 +225,14 @@ namespace ImageCollectionTool
             return results;
         }
 
-        private static int GetImageNumber(string imageName)
-        {
-            string nameWithoutExt = Path.GetFileNameWithoutExtension(imageName);
-            int underscoreIdx = nameWithoutExt.LastIndexOf('_');
-            if (underscoreIdx < 0) return -1;
-            int.TryParse(nameWithoutExt.Substring(underscoreIdx + 1), out int ans);
-            return ans;
-        }
-
         private void DeleteDuplicates_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 foreach (var (path1, path2, _) in _lastDuplicates)
                 {
-                    int num1 = GetImageNumber(Path.GetFileName(path1));
-                    int num2 = GetImageNumber(Path.GetFileName(path2));
+                    int num1 = ImageMatcher.GetImageNumber(Path.GetFileName(path1));
+                    int num2 = ImageMatcher.GetImageNumber(Path.GetFileName(path2));
                     string pathToDelete = num1 >= num2 ? path1 : path2;
                     string nameToDelete = Path.GetFileName(pathToDelete);
 

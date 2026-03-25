@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using OpenCvSharp;
+
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("DuplicateImageFinder.Tests")]
 
 namespace ImageCollectionTool
 {
@@ -109,8 +112,18 @@ namespace ImageCollectionTool
 
         // XOR produces a 1 for every bit position where the hashes differ; PopCount counts those bits.
         // Result is the number of differing bits — lower means more similar images.
-        private static int HammingDistance(ulong a, ulong b)
+        internal static int HammingDistance(ulong a, ulong b)
             => System.Numerics.BitOperations.PopCount(a ^ b);
+
+        // Extracts the numeric suffix from a filename of the form "Name_<number>.ext". Returns -1 if no underscore is found.
+        internal static int GetImageNumber(string imageName)
+        {
+            string nameWithoutExt = Path.GetFileNameWithoutExtension(imageName);
+            int underscoreIdx = nameWithoutExt.LastIndexOf('_');
+            if (underscoreIdx < 0) return -1;
+            int.TryParse(nameWithoutExt[(underscoreIdx + 1)..], out int ans);
+            return ans;
+        }
 
         // 2D DCT-II implemented as two passes of the 1D DCT (separable property).
         // Formula per element: sum of input[x] * cos((2x+1) * u * π / (2n))

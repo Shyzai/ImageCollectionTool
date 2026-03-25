@@ -258,9 +258,12 @@ namespace ImageCollectionTool
 
                     string duplicatesCopyToDelete = Path.Combine(_lastDuplicatesFolder, nameToDelete);
                     string duplicatesCopyToKeep = Path.Combine(_lastDuplicatesFolder, nameToKeep);
-                    if (File.Exists(duplicatesCopyToDelete)) File.Delete(duplicatesCopyToDelete);
+                    if (File.Exists(duplicatesCopyToDelete))
+                    {
+                        File.Delete(duplicatesCopyToDelete);
+                        if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
+                    }
                     if (File.Exists(duplicatesCopyToKeep)) File.Delete(duplicatesCopyToKeep);
-                    if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
                 }
 
                 if (Directory.Exists(_lastDuplicatesFolder) && !Directory.EnumerateFiles(_lastDuplicatesFolder).Any())

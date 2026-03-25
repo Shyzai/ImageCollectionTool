@@ -41,5 +41,15 @@ namespace DuplicateImageFinder.Tests
         {
             Assert.Equal(7, ImageMatcher.GetImageNumber("My_Cat_7.jpg"));
         }
+
+        [Fact]
+        public void SequenceVariants_ReturnSameValue()
+        {
+            // Both return the same value — the filter that prevents same-numbered
+            // sequence files (e.g. Cat_1a and Cat_1b) from being flagged as duplicates relies on this.
+            Assert.Equal(
+                ImageMatcher.GetImageNumber("Cat_1a.jpg"),
+                ImageMatcher.GetImageNumber("Cat_1b.jpg"));
+        }
     }
 }

@@ -201,7 +201,10 @@ namespace ImageCollectionTool
 
         private static List<(string Path1, string Path2, int GoodMatches)> FindDuplicateImages(string[] files, string duplicatesFolder, StringBuilder sb)
         {
-            var results = ImageMatcher.FindDuplicates(files);
+            var results = ImageMatcher.FindDuplicates(files)
+                .Where(r => ImageMatcher.GetImageNumber(Path.GetFileName(r.Path1)) !=
+                            ImageMatcher.GetImageNumber(Path.GetFileName(r.Path2)))
+                .ToList();
 
             if (results.Count == 0)
             {

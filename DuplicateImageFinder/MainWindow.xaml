@@ -46,16 +46,29 @@
             VerticalScrollBarVisibility="Auto"
             HorizontalScrollBarVisibility="Auto"/>
 
-        <Button
-            Name="DeleteDuplicatesButton"
+        <StackPanel
+            Orientation="Horizontal"
             Grid.Row="2"
             Grid.ColumnSpan="2"
-            Width="150"
-            Height="21"
             HorizontalAlignment="Center"
-            Margin="0 0 0 5"
-            IsEnabled="False"
-            Content="Delete Duplicates" Click="DeleteDuplicates_Click" />
+            Margin="0 0 0 5">
+
+            <Button
+                Name="DeleteDuplicatesButton"
+                Width="150"
+                Height="21"
+                Margin="0 0 10 0"
+                IsEnabled="False"
+                Content="Delete Duplicates" Click="DeleteDuplicates_Click" />
+
+            <Button
+                Name="FixNumberingButton"
+                Width="150"
+                Height="21"
+                IsEnabled="False"
+                Content="Fix Numbering" Click="FixNumbering_Click" />
+
+        </StackPanel>
             
         <StackPanel
             Orientation="Horizontal"

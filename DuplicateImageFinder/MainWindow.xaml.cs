@@ -21,6 +21,7 @@ namespace ImageCollectionTool
         string targetFolder;
         List<(string, string, int)> _lastDuplicates = [];
         string _lastDuplicatesFolder;
+        List<(string OldPath, int NewNumber)> _lastNumberingFixes = [];
 
         private static readonly Regex s_sequenceFirstRegex     = new Regex(@"\w*_\d*a.*",     RegexOptions.Compiled);
         private static readonly Regex s_sequenceFollowingRegex = new Regex(@"\w*_\d*[b-z].*", RegexOptions.Compiled);
@@ -83,11 +84,13 @@ namespace ImageCollectionTool
 
                 RunButton.IsEnabled = false;
 
-                var (output, duplicates, duplicatesFolder) = await Task.Run(() => RunAnalysis(folder, keyword, findDuplicates));
+                var (output, duplicates, duplicatesFolder, numberingFixes) = await Task.Run(() => RunAnalysis(folder, keyword, findDuplicates));
                 mainTextBox.AppendText(output);
                 _lastDuplicates = duplicates;
                 _lastDuplicatesFolder = duplicatesFolder;
+                _lastNumberingFixes = numberingFixes;
                 DeleteDuplicatesButton.IsEnabled = duplicates.Count > 0;
+                FixNumberingButton.IsEnabled = numberingFixes.Count > 0;
             }
             catch (Exception ex)
             {
@@ -99,7 +102,7 @@ namespace ImageCollectionTool
             }
         }
 
-        private static (string Output, List<(string, string, int)> Duplicates, string DuplicatesFolder) RunAnalysis(string targetFolder, string keyword, bool findDuplicates)
+        private static (string Output, List<(string, string, int)> Duplicates, string DuplicatesFolder, List<(string OldPath, int NewNumber)> NumberingFixes) RunAnalysis(string targetFolder, string keyword, bool findDuplicates)
         {
             var sb = new StringBuilder();
             List<(string, string, int)> duplicates = [];
@@ -150,6 +153,20 @@ namespace ImageCollectionTool
             /* Finds numbers that are in the "correct" numbering list, and are not in the file names */
             var missingNums = referenceNums.Except(imageNameNums).ToList();
 
+            /* Build rename plan: files whose number exceeds the expected range are "extras" to be renumbered */
+            int maxRef = files.Length - numIgnoredImages;
+            var extras = new List<(string Path, int Num)>();
+            for (int i = 0; i < files.Length; i++)
+                if (imageNameNums[i] > maxRef)
+                    extras.Add((files[i], imageNameNums[i]));
+
+            extras.Sort((a, b) => a.Num.CompareTo(b.Num));
+            var sortedMissing = missingNums.OrderBy(n => n).ToList();
+
+            var numberingFixes = new List<(string OldPath, int NewNumber)>();
+            for (int i = 0; i < Math.Min(extras.Count, sortedMissing.Count); i++)
+                numberingFixes.Add((extras[i].Path, sortedMissing[i]));
+
             if (missingNums.Count > 0)
             {
                 sb.Append("Images are missing number(s): \n");
@@ -187,7 +204,7 @@ namespace ImageCollectionTool
 
             #endregion
 
-            return (sb.ToString(), duplicates, duplicatesFolder);
+            return (sb.ToString(), duplicates, duplicatesFolder, numberingFixes);
         }
 
         private static List<(string, string, int)> FindDuplicateImages(string[] files, string duplicatesFolder, StringBuilder sb)
@@ -255,6 +272,30 @@ namespace ImageCollectionTool
             catch (Exception ex)
             {
                 System.Windows.Forms.MessageBox.Show("DeleteDuplicates_Click exception: " + ex.Message);
+            }
+        }
+
+        private void FixNumbering_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                foreach (var (oldPath, newNumber) in _lastNumberingFixes)
+                {
+                    string dir  = Path.GetDirectoryName(oldPath);
+                    string name = Path.GetFileNameWithoutExtension(oldPath);
+                    string ext  = Path.GetExtension(oldPath);
+                    int underscoreIdx = name.LastIndexOf('_');
+                    string newName = name.Substring(0, underscoreIdx + 1) + newNumber + ext;
+                    File.Move(oldPath, Path.Combine(dir, newName));
+                }
+
+                mainTextBox.AppendText("> Renamed " + _lastNumberingFixes.Count + " file(s) to fix numbering.\n");
+                _lastNumberingFixes = [];
+                FixNumberingButton.IsEnabled = false;
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Forms.MessageBox.Show("FixNumbering_Click exception: " + ex.Message);
             }
         }
 

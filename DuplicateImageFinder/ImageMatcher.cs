@@ -45,7 +45,7 @@ namespace ImageCollectionTool
                         candidates.Add((paths[i], paths[j]));
 
             // Phase 2: ORB feature matching on candidates only, in parallel
-            var duplicates = new ConcurrentBag<(string, string, int)>();
+            var duplicates = new ConcurrentBag<(string Path1, string Path2, int GoodMatches)>();
             Parallel.ForEach(candidates, pair =>
             {
                 int matches = CountFeatureMatches(pair.Item1, pair.Item2);
@@ -53,7 +53,7 @@ namespace ImageCollectionTool
                     duplicates.Add((pair.Item1, pair.Item2, matches));
             });
 
-            var result = [..duplicates];
+            List<(string Path1, string Path2, int GoodMatches)> result = [..duplicates];
             result.Sort((a, b) => b.GoodMatches.CompareTo(a.GoodMatches));
             return result;
         }

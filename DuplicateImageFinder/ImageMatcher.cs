@@ -37,9 +37,10 @@ namespace ImageCollectionTool
 
             // Phase 1: pHash screening — cheap O(n²) filter
             List<string> paths = [..hashes.Keys];
-            List<(string, string)> candidates = [];
-            for (int i = 0; i < paths.Count; i++)
-                for (int j = i + 1; j < paths.Count; j++)
+            int n = paths.Count;
+            List<(string, string)> candidates = new(n * (n - 1) / 2);
+            for (int i = 0; i < n; i++)
+                for (int j = i + 1; j < n; j++)
                     if (HammingDistance(hashes[paths[i]], hashes[paths[j]]) <= hammingThreshold)
                         candidates.Add((paths[i], paths[j]));
 
@@ -52,7 +53,9 @@ namespace ImageCollectionTool
                     duplicates.Add((pair.Item1, pair.Item2, matches));
             });
 
-            return [..duplicates];
+            var result = [..duplicates];
+            result.Sort((a, b) => b.GoodMatches.CompareTo(a.GoodMatches));
+            return result;
         }
 
         private static ulong ComputePHash(string imagePath)

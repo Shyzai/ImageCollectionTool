@@ -84,7 +84,7 @@ namespace ImageCollectionTool
                 RunButton.IsEnabled = false;
 
                 var (output, duplicates, duplicatesFolder) = await Task.Run(() => RunAnalysis(folder, keyword, findDuplicates));
-                mainTextBox.Text += output;
+                mainTextBox.AppendText(output);
                 _lastDuplicates = duplicates;
                 _lastDuplicatesFolder = duplicatesFolder;
                 DeleteDuplicatesButton.IsEnabled = duplicates.Count > 0;
@@ -231,7 +231,9 @@ namespace ImageCollectionTool
             {
                 foreach (var (path1, path2, _) in _lastDuplicates)
                 {
-                    string pathToDelete = GetImageNumber(Path.GetFileName(path1)) >= GetImageNumber(Path.GetFileName(path2)) ? path1 : path2;
+                    int num1 = GetImageNumber(Path.GetFileName(path1));
+                    int num2 = GetImageNumber(Path.GetFileName(path2));
+                    string pathToDelete = num1 >= num2 ? path1 : path2;
                     string nameToDelete = Path.GetFileName(pathToDelete);
 
                     string pathToKeep = pathToDelete == path1 ? path2 : path1;
@@ -247,7 +249,7 @@ namespace ImageCollectionTool
                 if (Directory.Exists(_lastDuplicatesFolder) && !Directory.EnumerateFiles(_lastDuplicatesFolder).Any())
                     Directory.Delete(_lastDuplicatesFolder);
 
-                mainTextBox.Text += "> Deleted duplicate files.\n";
+                mainTextBox.AppendText("> Deleted duplicate files.\n");
                 DeleteDuplicatesButton.IsEnabled = false;
             }
             catch (Exception ex)

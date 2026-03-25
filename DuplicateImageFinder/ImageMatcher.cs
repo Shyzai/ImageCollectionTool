@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using OpenCvSharp;
@@ -8,49 +10,71 @@ namespace ImageCollectionTool
 {
     public static class ImageMatcher
     {
+        // Precomputed cosine lookup table for the fixed 32×32 DCT — eliminates repeated MathF.Cos calls in the inner loop
+        private static readonly float[,] s_cosTable = BuildCosTable(32);
+
+        private static float[,] BuildCosTable(int n)
+        {
+            var table = new float[n, n];
+            for (int x = 0; x < n; x++)
+                for (int u = 0; u < n; u++)
+                    table[x, u] = MathF.Cos((2 * x + 1) * u * MathF.PI / (2 * n));
+            return table;
+        }
+
         public static List<(string Path1, string Path2, int GoodMatches)> FindDuplicates(
             string[] imagePaths,
             int hammingThreshold = 10,
             int minFeatureMatches = 15)
         {
-            // Pre-compute pHash for all images
-            var hashes = new Dictionary<string, ulong>();
-            foreach (var path in imagePaths)
+            // Phase 1: compute pHash for all images in parallel
+            var hashes = new ConcurrentDictionary<string, ulong>();
+            Parallel.ForEach(imagePaths, path =>
             {
                 try { hashes[path] = ComputePHash(path); }
                 catch { /* skip unreadable files */ }
-            }
+            });
 
             // Phase 1: pHash screening — cheap O(n²) filter
-            var paths = new List<string>(hashes.Keys);
-            var candidates = new List<(string, string)>();
+            List<string> paths = [..hashes.Keys];
+            List<(string, string)> candidates = [];
             for (int i = 0; i < paths.Count; i++)
                 for (int j = i + 1; j < paths.Count; j++)
                     if (HammingDistance(hashes[paths[i]], hashes[paths[j]]) <= hammingThreshold)
                         candidates.Add((paths[i], paths[j]));
 
-            // Phase 2: ORB feature matching on candidates only
-            var duplicates = new List<(string, string, int)>();
-            foreach (var (a, b) in candidates)
+            // Phase 2: ORB feature matching on candidates only, in parallel
+            var duplicates = new ConcurrentBag<(string, string, int)>();
+            Parallel.ForEach(candidates, pair =>
             {
-                int matches = CountFeatureMatches(a, b);
+                int matches = CountFeatureMatches(pair.Item1, pair.Item2);
                 if (matches >= minFeatureMatches)
-                    duplicates.Add((a, b, matches));
-            }
+                    duplicates.Add((pair.Item1, pair.Item2, matches));
+            });
 
-            return duplicates;
+            return [..duplicates];
         }
 
         private static ulong ComputePHash(string imagePath)
         {
-            var image = new BitmapImage(new Uri(imagePath));
-            var grayscale = new FormatConvertedBitmap(image, PixelFormats.Gray8, null, 0);
+            // Load with CacheOption.OnLoad so all decoding happens on the calling thread (safe for Parallel.ForEach)
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri(imagePath);
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.EndInit();
+            image.Freeze();
 
-            // Scale factors to resize the image down to a fixed 32x32 grid
-            var scale = new System.Windows.Media.ScaleTransform(
+            var grayscale = new FormatConvertedBitmap(image, PixelFormats.Gray8, null, 0);
+            grayscale.Freeze();
+
+            // Scale factors to resize the image down to a fixed 32×32 grid
+            var scale = new ScaleTransform(
                 32.0 / grayscale.PixelWidth,
                 32.0 / grayscale.PixelHeight);
+            scale.Freeze();
             var resized = new TransformedBitmap(grayscale, scale);
+            resized.Freeze();
 
             byte[] pixels = new byte[32 * 32];
             resized.CopyPixels(pixels, 32, 0);
@@ -63,22 +87,19 @@ namespace ImageCollectionTool
 
             float[,] dct = ComputeDCT(matrix, 32);
 
-            // Take the top-left 8x8 low-frequency coefficients
-            float[] lowFreq = new float[64];
+            // Mean of the top-left 8×8 low-frequency coefficients, excluding the DC component at (0,0) to avoid brightness bias
+            float sum = 0;
             for (int y = 0; y < 8; y++)
                 for (int x = 0; x < 8; x++)
-                    lowFreq[y * 8 + x] = dct[y, x];
-
-            // Mean excluding the DC component (index 0) to avoid brightness bias
-            float sum = 0;
-            for (int i = 1; i < 64; i++) sum += lowFreq[i];
+                    if (y != 0 || x != 0) sum += dct[y, x];
             float mean = sum / 63f; // 63 AC coefficients (64 total minus the DC component at index 0)
 
             // Set the i-th bit if this coefficient exceeds the mean; encodes relative frequency structure as a 64-bit fingerprint
             ulong hash = 0;
-            for (int i = 0; i < 64; i++)
-                if (lowFreq[i] > mean)
-                    hash |= (1UL << i);
+            for (int y = 0; y < 8; y++)
+                for (int x = 0; x < 8; x++)
+                    if (dct[y, x] > mean)
+                        hash |= (1UL << (y * 8 + x));
 
             return hash;
         }
@@ -92,7 +113,7 @@ namespace ImageCollectionTool
         // Formula per element: sum of input[x] * cos((2x+1) * u * π / (2n))
         private static float[,] ComputeDCT(float[,] input, int n)
         {
-            float[,] temp = new float[n, n];
+            float[,] temp   = new float[n, n];
             float[,] output = new float[n, n];
 
             // Pass 1: apply 1D DCT across each row (captures horizontal frequency content)
@@ -101,7 +122,7 @@ namespace ImageCollectionTool
                 {
                     float s = 0;
                     for (int x = 0; x < n; x++)
-                        s += input[y, x] * MathF.Cos((2 * x + 1) * u * MathF.PI / (2 * n));
+                        s += input[y, x] * s_cosTable[x, u];
                     temp[y, u] = s;
                 }
 
@@ -111,7 +132,7 @@ namespace ImageCollectionTool
                 {
                     float s = 0;
                     for (int y = 0; y < n; y++)
-                        s += temp[y, u] * MathF.Cos((2 * y + 1) * v * MathF.PI / (2 * n));
+                        s += temp[y, u] * s_cosTable[y, v];
                     output[v, u] = s;
                 }
 
@@ -133,8 +154,8 @@ namespace ImageCollectionTool
 
             if (desc1.Empty() || desc2.Empty()) return 0;
 
-            using var matcher = new BFMatcher(NormTypes.Hamming, crossCheck: false);    // ORB descriptors are binary strings; Hamming distance counts differing bits
-            var knnMatches = matcher.KnnMatch(desc1, desc2, k: 2);                      // Find the 2 closest descriptor matches for each keypoint
+            using var matcher = new BFMatcher(NormTypes.Hamming, crossCheck: false); // ORB descriptors are binary strings; Hamming distance counts differing bits
+            var knnMatches = matcher.KnnMatch(desc1, desc2, k: 2);                   // Find the 2 closest descriptor matches for each keypoint
 
             // Lowe's ratio test
             int goodMatches = 0;

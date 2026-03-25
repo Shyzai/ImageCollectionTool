@@ -1,5 +1,7 @@
 ﻿using System;
 using System.IO;
+using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Linq;
@@ -17,8 +19,9 @@ namespace ImageCollectionTool
     {
         Configuration configFile;
         string targetFolder;
-        string duplicatesFolder;
-        string[] files;
+
+        private static readonly Regex s_sequenceFirstRegex     = new Regex(@"\w*_\d*a.*",     RegexOptions.Compiled);
+        private static readonly Regex s_sequenceFollowingRegex = new Regex(@"\w*_\d*[b-z].*", RegexOptions.Compiled);
 
         public MainWindow()
         {
@@ -64,191 +67,160 @@ namespace ImageCollectionTool
             }
         }
 
-        private void Run_Click(object sender, RoutedEventArgs e)
+        private async void Run_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 if (string.IsNullOrEmpty(targetFolder)) throw new Exception("Folder was not selected.");
 
-                #region Finding relevant files
-
-                mainTextBox.Text += "Searching in: " + targetFolder + "\n";
                 string keyword = commonWordsTextBox.Text;
+                if (string.IsNullOrWhiteSpace(keyword)) throw new Exception("Common word required");
 
-                files = null;
+                bool findDups = findDuplicatesCheckBox.IsChecked == true;
+                string folder = targetFolder; // capture before leaving the UI thread
 
-                if (!string.IsNullOrWhiteSpace(keyword))
-                {
-                    files = Directory.GetFiles(targetFolder, keyword + "_*.*");
+                RunButton.IsEnabled = false;
 
-                    mainTextBox.Text += "Found " + files.Length + " files with the word '" + keyword + "'\n\n";
-                }
-                else
-                {
-                    throw new Exception("Common word required");
-                    //files = Directory.GetFiles(targetFolder);
-                    //mainTextBox.Text += "Found " + files.Length + " files in " + targetFolder + "\n";
-                }
-
-                #endregion
-
-                #region Checking image numbering 
-
-                int[] referenceNums = new int[files.Length];
-                int[] imageNameNums = new int[files.Length];
-
-                int numIgnoredImages = 0;
-                for (int i = 0; i < files.Length; i++)
-                {
-                    //string actualName = fileName.Substring(fileName.LastIndexOf("\\") + 1);
-                    //File.Copy(fileName, tempComparisonDir + "\\" + actualName);
-                    string fileName = files[i].Substring(files[i].LastIndexOf("\\") + 1);
-
-                    /* Accounting for similar images following pattern 'Name_1a.jpg', 'Name_1b.jpg', etc... */
-                    /* Case 1: First image in a sequence (eg. Name_1a) */
-                    /* Case 2: All following images in a sequence up to 'z' */
-                    /* Case 3: Normal numbered images */
-                    if (Regex.IsMatch(fileName, @"\w*_\d*a.*"))
-                    {
-                        imageNameNums[i] = GetImageNumber(fileName.Remove(fileName.IndexOf(".") - 1, 1));
-                        referenceNums[i] = i + 1 - numIgnoredImages;
-                    }
-                    else if (Regex.IsMatch(fileName, @"\w*_\d*[b-z].*"))
-                    {
-                        imageNameNums[i] = imageNameNums[i - 1];
-                        referenceNums[i] = referenceNums[i - 1];
-                        numIgnoredImages++;
-                    }
-                    else
-                    {
-                        imageNameNums[i] = GetImageNumber(fileName);
-                        referenceNums[i] = i + 1 - numIgnoredImages;
-                    }
-                }
-
-                /* Finds numbers that are in the "correct" numbering list, and are not in the file names */
-                IEnumerable<int> differenceQuery = referenceNums.Except(imageNameNums);
-
-                if (differenceQuery.Count() > 0)
-                {
-                    mainTextBox.Text += "Images are missing number(s): \n";
-
-                    foreach (int n in differenceQuery)
-                    {
-                        mainTextBox.Text += "> " + n + "\n";
-                    }
-                }
-                else
-                {
-                    mainTextBox.Text += "> All images are correctly numbered\n";
-                }
-                mainTextBox.Text += "\n";
-
-                #endregion
-
-                #region Finding duplicate images by comparing average Hue-Saturation-Brightness values
-
-                duplicatesFolder = targetFolder + "\\Potential_" + keyword + "_Duplicates";
-                if (Directory.Exists(duplicatesFolder))
-                {
-                    Directory.Delete(duplicatesFolder, true);
-                }
-
-                if (findDuplicatesCheckBox.IsChecked == true)
-                {
-                    if (files.Length > 1)
-                    {
-                        Directory.CreateDirectory(duplicatesFolder);
-
-                        FindDuplicateImages();
-                    }
-                    else
-                    {
-                        System.Windows.Forms.MessageBox.Show("Not enough images to do comparisons");
-                    }
-                }
-
-                mainTextBox.Text += "=======================================================\n";
-
-                #endregion
+                string output = await Task.Run(() => RunAnalysis(folder, keyword, findDups));
+                mainTextBox.Text += output;
             }
             catch (Exception ex)
             {
                 System.Windows.Forms.MessageBox.Show("Run_Click exception: " + ex.Message);
             }
+            finally
+            {
+                RunButton.IsEnabled = true;
+            }
         }
 
-        private void FindDuplicateImages()
+        private static string RunAnalysis(string targetFolder, string keyword, bool findDuplicates)
         {
-            try
-            {
-                var results = ImageMatcher.FindDuplicates(files);
+            var sb = new StringBuilder();
 
-                if (results.Count == 0)
+            #region Finding relevant files
+
+            sb.Append("Searching in: ").Append(targetFolder).Append('\n');
+
+            string[] files = Directory.GetFiles(targetFolder, keyword + "_*.*");
+            sb.Append("Found ").Append(files.Length).Append(" files with the word '").Append(keyword).Append("'\n\n");
+
+            #endregion
+
+            #region Checking image numbering
+
+            int[] referenceNums  = new int[files.Length];
+            int[] imageNameNums  = new int[files.Length];
+            int numIgnoredImages = 0;
+
+            for (int i = 0; i < files.Length; i++)
+            {
+                //string actualName = fileName.Substring(fileName.LastIndexOf("\\") + 1);
+                //File.Copy(fileName, tempComparisonDir + "\\" + actualName);
+                string fileName = Path.GetFileName(files[i]);
+
+                /* Accounting for similar images following pattern 'Name_1a.jpg', 'Name_1b.jpg', etc... */
+                /* Case 1: First image in a sequence (eg. Name_1a) */
+                /* Case 2: All following images in a sequence up to 'z' */
+                /* Case 3: Normal numbered images */
+                if (s_sequenceFirstRegex.IsMatch(fileName))
                 {
-                    mainTextBox.Text += "> No duplicates found\n";
-                    Directory.Delete(duplicatesFolder);
-                    return;
+                    imageNameNums[i] = GetImageNumber(fileName.Remove(fileName.IndexOf(".") - 1, 1));
+                    referenceNums[i] = i + 1 - numIgnoredImages;
                 }
-
-                foreach (var (path1, path2, goodMatches) in results)
+                else if (s_sequenceFollowingRegex.IsMatch(fileName))
                 {
-                    string name1 = GetFileNameFromPath(path1);
-                    string name2 = GetFileNameFromPath(path2);
-
-                    mainTextBox.Text += "> Potential match found (" + goodMatches + " feature matches): " + name1 + " and " + name2 + "\n";
-
-                    if (!File.Exists(duplicatesFolder + "\\" + name1)) File.Copy(path1, duplicatesFolder + "\\" + name1);
-                    if (!File.Exists(duplicatesFolder + "\\" + name2)) File.Copy(path2, duplicatesFolder + "\\" + name2);
+                    imageNameNums[i] = imageNameNums[i - 1];
+                    referenceNums[i] = referenceNums[i - 1];
+                    numIgnoredImages++;
+                }
+                else
+                {
+                    imageNameNums[i] = GetImageNumber(fileName);
+                    referenceNums[i] = i + 1 - numIgnoredImages;
                 }
             }
-            catch (Exception ex)
+
+            /* Finds numbers that are in the "correct" numbering list, and are not in the file names */
+            var missingNums = referenceNums.Except(imageNameNums).ToList();
+
+            if (missingNums.Count > 0)
             {
-                System.Windows.Forms.MessageBox.Show("FindDuplicateImages exception: " + ex.Message);
+                sb.Append("Images are missing number(s): \n");
+                foreach (int n in missingNums)
+                    sb.Append("> ").Append(n).Append('\n');
+            }
+            else
+            {
+                sb.Append("> All images are correctly numbered\n");
+            }
+            sb.Append('\n');
+
+            #endregion
+
+            #region Finding duplicate images
+
+            string dupsFolder = targetFolder + "\\Potential_" + keyword + "_Duplicates";
+            if (Directory.Exists(dupsFolder))
+                Directory.Delete(dupsFolder, true);
+
+            if (findDuplicates)
+            {
+                if (files.Length > 1)
+                {
+                    Directory.CreateDirectory(dupsFolder);
+                    FindDuplicateImages(files, dupsFolder, sb);
+                }
+                else
+                {
+                    sb.Append("Not enough images to do comparisons\n");
+                }
+            }
+
+            sb.Append("=======================================================\n");
+
+            #endregion
+
+            return sb.ToString();
+        }
+
+        private static void FindDuplicateImages(string[] files, string duplicatesFolder, StringBuilder sb)
+        {
+            var results = ImageMatcher.FindDuplicates(files);
+
+            if (results.Count == 0)
+            {
+                sb.Append("> No duplicates found\n");
+                Directory.Delete(duplicatesFolder);
+                return;
+            }
+
+            foreach (var (path1, path2, goodMatches) in results)
+            {
+                string name1 = Path.GetFileName(path1);
+                string name2 = Path.GetFileName(path2);
+
+                sb.Append("> Potential match found (").Append(goodMatches).Append(" feature matches): ")
+                  .Append(name1).Append(" and ").Append(name2).Append('\n');
+
+                if (!File.Exists(duplicatesFolder + "\\" + name1)) File.Copy(path1, duplicatesFolder + "\\" + name1);
+                if (!File.Exists(duplicatesFolder + "\\" + name2)) File.Copy(path2, duplicatesFolder + "\\" + name2);
             }
         }
 
-        private string GetFileNameFromPath(string path)
+        private static int GetImageNumber(string imageName)
         {
-            string temp = null;
-
-            try
-            {
-                temp = path.Substring(path.LastIndexOf("\\") + 1);
-            }
-            catch (Exception ex)
-            {
-                System.Windows.Forms.MessageBox.Show("GetFileNameFromPath exception: " + ex.Message);
-            }
-
-            return temp;
-        }
-
-        private int GetImageNumber(string imageName)
-        {
-            int ans = -1;
-
-            try
-            {
-                int start = imageName.LastIndexOf("_") + 1;
-                int end = imageName.LastIndexOf(".");
-                int length = end - start;
-                int.TryParse(imageName.Substring(start, length), out ans);
-            }
-            catch (Exception ex)
-            {
-                System.Windows.Forms.MessageBox.Show("Error parsing imageName: " + ex.Message);
-            }
-
+            string nameWithoutExt = Path.GetFileNameWithoutExtension(imageName);
+            int underscoreIdx = nameWithoutExt.LastIndexOf('_');
+            if (underscoreIdx < 0) return -1;
+            int.TryParse(nameWithoutExt.Substring(underscoreIdx + 1), out int ans);
             return ans;
         }
 
         private void commonWordsTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == Key.Return)
-            {
                 Run_Click(this, new RoutedEventArgs());
-            }
         }
     }
 }

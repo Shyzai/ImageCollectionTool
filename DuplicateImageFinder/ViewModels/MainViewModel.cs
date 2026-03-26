@@ -164,14 +164,15 @@ namespace ImageCollectionTool.ViewModels
             }
         }
 
-        // Deletes the higher-numbered image from each selected pair and cleans up the staging folder.
-        // Unselected pairs are left untouched and removed from the list.
+        // Deletes the higher-numbered image from each selected pair.
+        // Unselected pairs are kept in the main folder; their staging copies are removed.
         [RelayCommand]
         private void DeleteDuplicates()
         {
             try
             {
                 var toDelete = DuplicatePairs.Where(p => p.IsSelected).ToList();
+                var toKeep   = DuplicatePairs.Where(p => !p.IsSelected).ToList();
 
                 foreach (var pair in toDelete)
                 {
@@ -195,6 +196,18 @@ namespace ImageCollectionTool.ViewModels
                         if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
                     }
                     if (File.Exists(duplicatesCopyToKeep)) File.Delete(duplicatesCopyToKeep);
+
+                    pair.PropertyChanged -= OnPairSelectionChanged;
+                    DuplicatePairs.Remove(pair);
+                }
+
+                // Remove staging copies for unselected pairs — originals are left untouched.
+                foreach (var pair in toKeep)
+                {
+                    string copy1 = Path.Combine(_lastDuplicatesFolder, pair.FileName1);
+                    string copy2 = Path.Combine(_lastDuplicatesFolder, pair.FileName2);
+                    if (File.Exists(copy1)) File.Delete(copy1);
+                    if (File.Exists(copy2)) File.Delete(copy2);
 
                     pair.PropertyChanged -= OnPairSelectionChanged;
                     DuplicatePairs.Remove(pair);

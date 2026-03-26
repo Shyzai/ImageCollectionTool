@@ -196,9 +196,6 @@ namespace ImageCollectionTool.ViewModels
                         if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
                     }
                     if (File.Exists(duplicatesCopyToKeep)) File.Delete(duplicatesCopyToKeep);
-
-                    pair.PropertyChanged -= OnPairSelectionChanged;
-                    DuplicatePairs.Remove(pair);
                 }
 
                 // Remove staging copies for unselected pairs — originals are left untouched.
@@ -208,10 +205,12 @@ namespace ImageCollectionTool.ViewModels
                     string copy2 = Path.Combine(_lastDuplicatesFolder, pair.FileName2);
                     if (File.Exists(copy1)) File.Delete(copy1);
                     if (File.Exists(copy2)) File.Delete(copy2);
-
-                    pair.PropertyChanged -= OnPairSelectionChanged;
-                    DuplicatePairs.Remove(pair);
                 }
+
+                // Unsubscribe all pairs and clear the collection in one operation.
+                foreach (var pair in DuplicatePairs)
+                    pair.PropertyChanged -= OnPairSelectionChanged;
+                DuplicatePairs.Clear();
 
                 // Remove the staging folder if it's now empty.
                 if (Directory.Exists(_lastDuplicatesFolder) && !Directory.EnumerateFiles(_lastDuplicatesFolder).Any())

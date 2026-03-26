@@ -12,6 +12,10 @@ Detects duplicate images using perceptual hashing (pHash) for fast candidate fil
 
 Once reviewed, the **Delete Duplicates** button removes the higher-numbered file from each pair. If a pair has already been manually removed from the duplicates folder, it is skipped and the original is left untouched.
 
+## Platform
+
+This application targets Windows only. Builds on non-Windows platforms will produce CA1416 warnings about Windows-specific APIs (WPF, WinForms, `FolderBrowserDialog`).
+
 ## Testing
 
 Tests are in the `DuplicateImageFinder.Tests` project and use xUnit. Run them from the repo root:

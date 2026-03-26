@@ -15,7 +15,7 @@ namespace ImageCollectionTool
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         Configuration configFile;
         string targetFolder;
@@ -35,7 +35,7 @@ namespace ImageCollectionTool
                 configFile = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
 
                 targetFolder = configFile.AppSettings.Settings["Search Directory"].Value ?? "";
-                folderText.Text += targetFolder;
+                folderText.Text += ShortenPath(targetFolder);
             }
             catch (Exception ex)
             {
@@ -54,7 +54,7 @@ namespace ImageCollectionTool
                 {
                     configFile.AppSettings.Settings["Search Directory"].Value = fbd.SelectedPath;
                     targetFolder = fbd.SelectedPath;
-                    folderText.Text = "Current Folder: " + fbd.SelectedPath;
+                    folderText.Text = "Current Folder: " + ShortenPath(fbd.SelectedPath);
 
                     configFile.Save(ConfigurationSaveMode.Modified);
                     ConfigurationManager.RefreshSection(configFile.AppSettings.SectionInformation.Name);
@@ -292,6 +292,14 @@ namespace ImageCollectionTool
         {
             if (e.Key == Key.Return)
                 Run_Click(this, new RoutedEventArgs());
+        }
+
+        private static string ShortenPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return path;
+            var parts = path.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length <= 3) return path;
+            return parts[0] + Path.DirectorySeparatorChar + "..." + Path.DirectorySeparatorChar + parts[^1];
         }
     }
 }

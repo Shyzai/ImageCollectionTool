@@ -5,120 +5,194 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ImageCollectionTool"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:vm="clr-namespace:ImageCollectionTool.ViewModels"
         mc:Ignorable="d"
-        Title="Image Collection Tool" Height="620" Width="500"
+        Title="Image Collection Tool" Height="540" Width="780" MinHeight="540" MinWidth="780"
         ExtendsContentIntoTitleBar="True">
+
+    <d:FluentWindow.DataContext>
+        <vm:MainViewModel />
+    </d:FluentWindow.DataContext>
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="48" />
+            <RowDefinition Height="45" />
+            <RowDefinition Height="1" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="48" />
-            <RowDefinition Height="40" />
-            <RowDefinition Height="36" />
-            <RowDefinition Height="48" />
         </Grid.RowDefinitions>
 
         <!-- Title bar -->
-        <ui:TitleBar
-            Grid.Row="0"
-            Title="Image Collection Tool" />
+        <ui:TitleBar Grid.Row="0" Margin="0 0 0 4" Title="Image Collection Tool" />
 
-        <!-- Folder selection -->
-        <Grid Grid.Row="1" Margin="10 0 10 0">
+        <!-- Full-width separator below title bar -->
+        <Rectangle Grid.Row="1" Fill="{DynamicResource ControlStrokeColorDefaultBrush}" />
+
+        <!-- Main layout: sidebar | divider | output -->
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock
-                Name="folderText"
-                Grid.Column="0"
-                VerticalAlignment="Center"
-                TextTrimming="CharacterEllipsis"
-                Text="Current Folder: "/>
-            <ui:Button
-                Grid.Column="1"
-                Icon="{ui:SymbolIcon FolderOpen24}"
-                Content="Select Folder"
-                VerticalAlignment="Center"
-                Click="SelectFolder_Click" />
-        </Grid>
-
-        <!-- Output -->
-        <TextBox
-            Name="mainTextBox"
-            Grid.Row="2"
-            Margin="10 0 10 0"
-            VerticalScrollBarVisibility="Auto"
-            HorizontalScrollBarVisibility="Auto"/>
-
-        <!-- Action buttons -->
-        <StackPanel
-            Orientation="Horizontal"
-            Grid.Row="3"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center">
-
-            <ui:Button
-                Name="DeleteDuplicatesButton"
-                Width="160"
-                Margin="0 0 10 0"
-                IsEnabled="False"
-                Appearance="Danger"
-                Icon="{ui:SymbolIcon Delete24}"
-                Content="Delete Duplicates" Click="DeleteDuplicates_Click" />
-
-            <ui:Button
-                Name="FixNumberingButton"
-                Width="140"
-                IsEnabled="False"
-                Icon="{ui:SymbolIcon NumberSymbol24}"
-                Content="Fix Numbering" Click="FixNumbering_Click" />
-
-        </StackPanel>
-
-        <!-- Common words -->
-        <Grid Grid.Row="4" Margin="10 0 10 0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="210" />
+                <ColumnDefinition Width="1" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock
-                Grid.Column="0"
-                VerticalAlignment="Center"
-                Text="Common words in file name:"/>
-            <TextBox
-                Name="commonWordsTextBox"
-                Grid.Column="1"
-                Margin="10 0 0 0"
-                VerticalAlignment="Center"
-                KeyDown="commonWordsTextBox_KeyDown"/>
+
+            <!-- Sidebar -->
+            <DockPanel Grid.Column="0" Margin="12 12 8 12" LastChildFill="False">
+
+                <!-- Folder -->
+                <TextBlock DockPanel.Dock="Top" Text="FOLDER" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding FolderText}" TextTrimming="CharacterEllipsis" Margin="0 0 0 8" />
+                <ui:Button DockPanel.Dock="Top" Content="Select Folder" Icon="{ui:SymbolIcon FolderOpen24}"
+                           HorizontalAlignment="Stretch" Margin="0 0 0 16"
+                           Command="{Binding SelectFolderCommand}" />
+
+                <Separator DockPanel.Dock="Top" Margin="0 0 0 16" />
+
+                <!-- Keyword -->
+                <TextBlock DockPanel.Dock="Top" Text="KEYWORD" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                <TextBox DockPanel.Dock="Top" Margin="0 0 0 16"
+                         Text="{Binding CommonWords, UpdateSourceTrigger=PropertyChanged}"
+                         Name="commonWordsTextBox"
+                         KeyDown="commonWordsTextBox_KeyDown" />
+
+                <!-- Checkbox -->
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0 0 0 24">
+                    <CheckBox IsChecked="{Binding FindDuplicates}" VerticalAlignment="Center" />
+                    <TextBlock Text="Check for duplicates" Margin="8 0 0 0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Run -->
+                <ui:Button DockPanel.Dock="Top" Content="Run" Icon="{ui:SymbolIcon Play24}"
+                           Appearance="Primary" HorizontalAlignment="Stretch" Margin="0 0 0 16"
+                           IsEnabled="{Binding IsRunEnabled}"
+                           Command="{Binding RunCommand}" />
+
+                <Separator DockPanel.Dock="Top" Margin="0 0 0 16" />
+
+                <!-- Action buttons -->
+                <ui:Button DockPanel.Dock="Top" Content="{Binding DeleteSelectedLabel}"
+                           Icon="{ui:SymbolIcon Delete24}"
+                           HorizontalAlignment="Stretch" Margin="0 0 0 8"
+                           IsEnabled="{Binding CanDeleteDuplicates}"
+                           Command="{Binding DeleteDuplicatesCommand}">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Setter Property="Appearance" Value="Secondary" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CanDeleteDuplicates}" Value="True">
+                                    <Setter Property="Appearance" Value="Danger" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                </ui:Button>
+                <ui:Button DockPanel.Dock="Top" Content="Fix Numbering" Icon="{ui:SymbolIcon NumberSymbol24}"
+                           HorizontalAlignment="Stretch"
+                           IsEnabled="{Binding CanFixNumbering}"
+                           Command="{Binding FixNumberingCommand}">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Setter Property="Appearance" Value="Secondary" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CanFixNumbering}" Value="True">
+                                    <Setter Property="Appearance" Value="Caution" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                </ui:Button>
+
+            </DockPanel>
+
+            <!-- Divider -->
+            <Rectangle Grid.Column="1" Fill="{DynamicResource ControlStrokeColorDefaultBrush}" VerticalAlignment="Stretch" Margin="0 8" />
+
+            <!-- Output panel -->
+            <ScrollViewer Grid.Column="2" Margin="8 12 6 12" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="0 0 14 0">
+
+                    <!-- Inline error message -->
+                    <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
+                            Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
+                            BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="12 8" Margin="0 0 0 16">
+                        <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                    </Border>
+
+                <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+
+                    <!-- Search summary -->
+                    <TextBlock Text="SEARCH" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                    <TextBlock Text="{Binding SearchSummary}" Margin="0 0 0 20" />
+
+                    <!-- Numbering -->
+                    <TextBlock Text="NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                    <TextBlock Text="{Binding NumberingText}" Margin="0 0 0 20" TextWrapping="Wrap" />
+
+                    <!-- Duplicates section -->
+                    <StackPanel Visibility="{Binding ShowDuplicatesSection, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="POTENTIAL DUPLICATES" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                        <TextBlock Text="No duplicates found"
+                                   Visibility="{Binding ShowNoDuplicatesMessage, Converter={StaticResource BoolToVis}}"
+                                   Margin="0 0 0 8" />
+                        <ItemsControl ItemsSource="{Binding DuplicatePairs}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:DuplicatePairViewModel}">
+                                    <Border Margin="0 0 4 8" CornerRadius="6" BorderThickness="2" Cursor="Hand">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+                                                <Setter Property="BorderBrush" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColorPrimaryBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Border.InputBindings>
+                                            <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleSelectionCommand}" />
+                                        </Border.InputBindings>
+                                        <Grid Margin="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <!-- Thumbnails -->
+                                            <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                                <Border Width="120" Height="90" CornerRadius="4" ClipToBounds="True">
+                                                    <Image Source="{Binding Thumbnail1}" Stretch="UniformToFill" />
+                                                </Border>
+                                                <Border Width="120" Height="90" CornerRadius="4" ClipToBounds="True" Margin="6 0 0 0">
+                                                    <Image Source="{Binding Thumbnail2}" Stretch="UniformToFill" />
+                                                </Border>
+                                            </StackPanel>
+                                            <!-- Details -->
+                                            <StackPanel Grid.Column="1" Margin="12 0 0 0" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <CheckBox IsChecked="{Binding IsSelected}" IsHitTestVisible="False" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding FileName1}" Margin="8 0 0 0" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding FileName2}" Margin="24 4 0 0" />
+                                                <TextBlock Margin="0 8 0 0" Opacity="0.6" FontSize="12">
+                                                    <Run Text="{Binding GoodMatches, Mode=OneWay}" /><Run Text=" feature matches" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
-
-        <!-- Duplicate check -->
-        <StackPanel
-            Orientation="Horizontal"
-            Grid.Row="5"
-            VerticalAlignment="Center"
-            Margin="10 0 0 0">
-            <CheckBox
-                Name="findDuplicatesCheckBox" />
-            <TextBlock
-                Text="Check for duplicate images?"
-                Margin="8 0 0 0"
-                VerticalAlignment="Center"/>
-        </StackPanel>
-
-        <!-- Run -->
-        <ui:Button
-            Name="RunButton"
-            Grid.Row="6"
-            Width="100"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            Appearance="Primary"
-            Icon="{ui:SymbolIcon Play24}"
-            Content="Run" Click="Run_Click" />
     </Grid>
 </ui:FluentWindow>

@@ -37,8 +37,8 @@ namespace ImageCollectionTool.ViewModels
 
         // Opens Windows Explorer with the file selected.
         [RelayCommand]
-        private void OpenInExplorer(string path) =>
-            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+        private void OpenImage(string path) =>
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
 
         private async Task LoadThumbnailsAsync()
         {

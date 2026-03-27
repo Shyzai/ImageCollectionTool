@@ -66,9 +66,14 @@
 
                 <!-- Run -->
                 <ui:Button DockPanel.Dock="Top" Content="Run" Icon="{ui:SymbolIcon Play24}"
-                           Appearance="Primary" HorizontalAlignment="Stretch" Margin="0 0 0 16"
+                           Appearance="Primary" HorizontalAlignment="Stretch" Margin="0 0 0 8"
                            IsEnabled="{Binding IsRunEnabled}"
                            Command="{Binding RunCommand}" />
+
+                <!-- Progress (visible while running) -->
+                <TextBlock DockPanel.Dock="Top" Text="{Binding ProgressText}"
+                           Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
+                           FontSize="11" Opacity="0.6" Margin="0 0 0 16" TextWrapping="Wrap" />
 
                 <Separator DockPanel.Dock="Top" Margin="0 0 0 16" />
 
@@ -161,27 +166,43 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <!-- Thumbnails -->
-                                            <StackPanel Orientation="Horizontal" Grid.Column="0">
-                                                <Border Width="120" Height="90" CornerRadius="4" ClipToBounds="True">
-                                                    <Image Source="{Binding Thumbnail1}" Stretch="UniformToFill" />
-                                                </Border>
-                                                <Border Width="120" Height="90" CornerRadius="4" ClipToBounds="True" Margin="6 0 0 0">
-                                                    <Image Source="{Binding Thumbnail2}" Stretch="UniformToFill" />
-                                                </Border>
-                                            </StackPanel>
-                                            <!-- Details -->
-                                            <StackPanel Grid.Column="1" Margin="12 0 0 0" VerticalAlignment="Center">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <CheckBox IsChecked="{Binding IsSelected}" IsHitTestVisible="False" VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding FileName1}" Margin="8 0 0 0" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                            <!-- Image 1 -->
+                                            <Border Grid.Column="0" Width="120" Height="90" CornerRadius="4" ClipToBounds="True">
+                                                <Image Source="{Binding Thumbnail1}" Stretch="UniformToFill" />
+                                            </Border>
+                                            <!-- Center: 3 rows -->
+                                            <Grid Grid.Column="1" Margin="12 0">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="*" />
+                                                </Grid.RowDefinitions>
+                                                <!-- Row 1: Name 1 (left) -->
+                                                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding FileName1}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                    <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="6 0 0 0" Padding="4 2"
+                                                               Appearance="Transparent" VerticalAlignment="Center"
+                                                               Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path1}" />
                                                 </StackPanel>
-                                                <TextBlock Text="{Binding FileName2}" Margin="24 4 0 0" />
-                                                <TextBlock Margin="0 8 0 0" Opacity="0.6" FontSize="12">
+                                                <!-- Row 2: Match count (center) -->
+                                                <TextBlock Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Opacity="0.6" FontSize="12">
                                                     <Run Text="{Binding GoodMatches, Mode=OneWay}" /><Run Text=" feature matches" />
                                                 </TextBlock>
-                                            </StackPanel>
+                                                <!-- Row 3: Name 2 (right) -->
+                                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="0 0 6 0" Padding="4 2"
+                                                               Appearance="Transparent" VerticalAlignment="Center"
+                                                               Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path2}" />
+                                                    <TextBlock Text="{Binding FileName2}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Grid>
+                                            <!-- Image 2 -->
+                                            <Border Grid.Column="2" Width="120" Height="90" CornerRadius="4" ClipToBounds="True">
+                                                <Image Source="{Binding Thumbnail2}" Stretch="UniformToFill" />
+                                            </Border>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

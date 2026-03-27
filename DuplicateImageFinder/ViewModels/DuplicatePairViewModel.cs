@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
@@ -33,6 +34,11 @@ namespace ImageCollectionTool.ViewModels
         // Toggles selection when the user clicks anywhere on the card.
         [RelayCommand]
         private void ToggleSelection() => IsSelected = !IsSelected;
+
+        // Opens Windows Explorer with the file selected.
+        [RelayCommand]
+        private void OpenInExplorer(string path) =>
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
 
         private async Task LoadThumbnailsAsync()
         {

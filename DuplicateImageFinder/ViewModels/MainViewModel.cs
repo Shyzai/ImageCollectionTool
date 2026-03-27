@@ -41,6 +41,11 @@ namespace ImageCollectionTool.ViewModels
         [ObservableProperty] private bool _canDeleteDuplicates = false;
         [ObservableProperty] private bool _canFixNumbering = false;
 
+        // Shown in the sidebar while a run is in progress.
+        [ObservableProperty] private string _progressText = "";
+        public bool IsRunning => !IsRunEnabled;
+        partial void OnIsRunEnabledChanged(bool value) => OnPropertyChanged(nameof(IsRunning));
+
         // Populated after each Run to drive the structured output panel.
         [ObservableProperty] private string _searchSummary = "";
         [ObservableProperty] private string _numberingText = "";
@@ -139,9 +144,12 @@ namespace ImageCollectionTool.ViewModels
 
                 ErrorMessage = "";
                 IsRunEnabled = false;
+                ProgressText = "Scanning files...";
+
+                var progress = new Progress<string>(msg => ProgressText = msg);
 
                 var (searchSummary, numberingText, duplicates, duplicatesFolder, numberingFixes) =
-                    await Task.Run(() => RunAnalysis(folder, keyword, findDuplicates));
+                    await Task.Run(() => RunAnalysis(folder, keyword, findDuplicates, progress));
 
                 SearchSummary = searchSummary;
                 NumberingText = numberingText;
@@ -160,6 +168,7 @@ namespace ImageCollectionTool.ViewModels
             }
             finally
             {
+                ProgressText = "";
                 IsRunEnabled = true;
             }
         }
@@ -302,7 +311,7 @@ namespace ImageCollectionTool.ViewModels
         // Runs on a background thread; must not touch UI or observable properties.
         private static (string SearchSummary, string NumberingText, List<(string Path1, string Path2, int GoodMatches)> Duplicates,
             string DuplicatesFolder, List<(string OldPath, int NewNumber)> NumberingFixes)
-            RunAnalysis(string targetFolder, string keyword, bool findDuplicates)
+            RunAnalysis(string targetFolder, string keyword, bool findDuplicates, IProgress<string>? progress = null)
         {
             List<(string Path1, string Path2, int GoodMatches)> duplicates = [];
 
@@ -381,7 +390,7 @@ namespace ImageCollectionTool.ViewModels
                 if (files.Length > 1)
                 {
                     Directory.CreateDirectory(duplicatesFolder);
-                    duplicates = FindDuplicateImages(files, duplicatesFolder);
+                    duplicates = FindDuplicateImages(files, duplicatesFolder, progress);
                 }
                 else
                 {
@@ -394,9 +403,9 @@ namespace ImageCollectionTool.ViewModels
 
         // Runs image similarity matching, filters out same-numbered pairs, and copies matches
         // into the staging folder so the user can review them before deleting.
-        private static List<(string Path1, string Path2, int GoodMatches)> FindDuplicateImages(string[] files, string duplicatesFolder)
+        private static List<(string Path1, string Path2, int GoodMatches)> FindDuplicateImages(string[] files, string duplicatesFolder, IProgress<string>? progress = null)
         {
-            var results = ImageMatcher.FindDuplicates(files)
+            var results = ImageMatcher.FindDuplicates(files, progress: progress)
                 .Where(r => ImageMatcher.GetImageNumber(Path.GetFileName(r.Path1)) !=
                             ImageMatcher.GetImageNumber(Path.GetFileName(r.Path2)))
                 .ToList();

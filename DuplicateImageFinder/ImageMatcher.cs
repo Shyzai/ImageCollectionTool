@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -28,7 +29,8 @@ namespace ImageCollectionTool
         public static List<(string Path1, string Path2, int GoodMatches)> FindDuplicates(
             string[] imagePaths,
             int hammingThreshold = 10,
-            int minFeatureMatches = 15)
+            int minFeatureMatches = 15,
+            IProgress<string>? progress = null)
         {
             // Phase 1: compute pHash for all images in parallel
             var hashes = new ConcurrentDictionary<string, ulong>();
@@ -47,13 +49,19 @@ namespace ImageCollectionTool
                     if (HammingDistance(hashes[paths[i]], hashes[paths[j]]) <= hammingThreshold)
                         candidates.Add((paths[i], paths[j]));
 
+            progress?.Report($"Checking {candidates.Count} candidate pair(s)...");
+
             // Phase 2: ORB feature matching on candidates only, in parallel
             var duplicates = new ConcurrentBag<(string Path1, string Path2, int GoodMatches)>();
+            int completed = 0;
             Parallel.ForEach(candidates, pair =>
             {
                 int matches = CountFeatureMatches(pair.Item1, pair.Item2);
                 if (matches >= minFeatureMatches)
                     duplicates.Add((pair.Item1, pair.Item2, matches));
+
+                int done = Interlocked.Increment(ref completed);
+                progress?.Report($"Checking pair {done} / {candidates.Count}...");
             });
 
             List<(string Path1, string Path2, int GoodMatches)> result = [..duplicates];

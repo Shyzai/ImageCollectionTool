@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ImageCollectionTool.Views;
 
 namespace ImageCollectionTool.ViewModels
 {
@@ -37,8 +38,12 @@ namespace ImageCollectionTool.ViewModels
 
         // Opens Windows Explorer with the file selected.
         [RelayCommand]
-        private void OpenImage(string path) =>
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        private void OpenInExplorer(string path) =>
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+
+        [RelayCommand]
+        private void CompareImages() =>
+            new ImageComparisonWindow(Path1, Path2).Show();
 
         private async Task LoadThumbnailsAsync()
         {

@@ -45,7 +45,7 @@
                 <!-- Folder -->
                 <TextBlock DockPanel.Dock="Top" Text="FOLDER" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
                 <TextBlock DockPanel.Dock="Top" Text="{Binding FolderText}" TextTrimming="CharacterEllipsis" Margin="0 0 0 8" />
-                <ui:Button DockPanel.Dock="Top" Content="Select Folder" Icon="{ui:SymbolIcon Open24}"
+                <ui:Button DockPanel.Dock="Top" Content="Select Folder" Icon="{ui:SymbolIcon FolderOpen24}"
                            HorizontalAlignment="Stretch" Margin="0 0 0 16"
                            Command="{Binding SelectFolderCommand}" />
 
@@ -217,20 +217,26 @@
                                                 <!-- Row 1: Name 1 (left) -->
                                                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding FileName1}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                    <ui:Button Icon="{ui:SymbolIcon Open24}" Margin="6 0 0 0" Padding="4 2"
+                                                    <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="6 0 0 0" Padding="4 2"
                                                                Appearance="Transparent" VerticalAlignment="Center"
-                                                               Command="{Binding OpenImageCommand}" CommandParameter="{Binding Path1}" />
+                                                               Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path1}" />
                                                 </StackPanel>
-                                                <!-- Row 2: Match count (center) -->
-                                                <TextBlock Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           Opacity="0.6" FontSize="12">
-                                                    <Run Text="{Binding GoodMatches, Mode=OneWay}" /><Run Text=" feature matches" />
-                                                </TextBlock>
+                                                <!-- Row 2: Match count + compare button (center) -->
+                                                <StackPanel Grid.Row="1" Orientation="Horizontal"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <TextBlock Opacity="0.6" FontSize="12" VerticalAlignment="Center">
+                                                        <Run Text="{Binding GoodMatches, Mode=OneWay}" /><Run Text=" feature matches" />
+                                                    </TextBlock>
+                                                    <ui:Button Icon="{ui:SymbolIcon ScaleFit24}" Margin="8 0 0 0" Padding="4 2"
+                                                               Appearance="Transparent" VerticalAlignment="Center"
+                                                               Command="{Binding CompareImagesCommand}"
+                                                               ToolTip="Compare side by side" />
+                                                </StackPanel>
                                                 <!-- Row 3: Name 2 (right) -->
                                                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                    <ui:Button Icon="{ui:SymbolIcon Open24}" Margin="0 0 6 0" Padding="4 2"
+                                                    <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="0 0 6 0" Padding="4 2"
                                                                Appearance="Transparent" VerticalAlignment="Center"
-                                                               Command="{Binding OpenImageCommand}" CommandParameter="{Binding Path2}" />
+                                                               Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path2}" />
                                                     <TextBlock Text="{Binding FileName2}" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </Grid>

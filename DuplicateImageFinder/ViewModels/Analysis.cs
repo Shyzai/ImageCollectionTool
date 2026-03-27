@@ -115,10 +115,7 @@ namespace ImageCollectionTool.ViewModels
         // into the staging folder so the user can review them before deleting.
         private static List<(string Path1, string Path2, int GoodMatches)> FindDuplicateImages(string[] files, string duplicatesFolder, IProgress<string>? progress = null)
         {
-            var results = ImageMatcher.FindDuplicates(files, progress: progress)
-                .Where(r => ImageMatcher.GetImageNumber(Path.GetFileName(r.Path1)) !=
-                            ImageMatcher.GetImageNumber(Path.GetFileName(r.Path2)))
-                .ToList();
+            var results = ImageMatcher.FindDuplicates(files, progress: progress);
 
             if (results.Count == 0)
             {

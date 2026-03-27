@@ -55,10 +55,6 @@ namespace ImageCollectionTool.ViewModels
                 ErrorMessage = "";
                 IsRunEnabled = false;
 
-                // Clean up the staging folder from the previous run if the target folder changed.
-                if (Directory.Exists(_lastDuplicatesFolder))
-                    Directory.Delete(_lastDuplicatesFolder, true);
-
                 using var ellipsisCts = new CancellationTokenSource();
                 _ = CycleProgressTextAsync("Scanning files", ellipsisCts.Token);
 
@@ -68,14 +64,13 @@ namespace ImageCollectionTool.ViewModels
                     ProgressText = msg;
                 });
 
-                var (searchSummary, numberingText, keywordNumberings, duplicates, duplicatesFolder, numberingFixes) =
+                var (searchSummary, numberingText, keywordNumberings, duplicates, numberingFixes) =
                     await Task.Run(() => RunAnalysis(folder, keyword, scanSubfolders, checkNumbering, progress));
 
                 SearchSummary = searchSummary;
                 NumberingText = numberingText;
                 _lastScanSubfolders = scanSubfolders;
                 _lastCheckSubfolderNumbering = checkNumbering;
-                _lastDuplicatesFolder = duplicatesFolder;
                 HasResults = true;
                 NotifyVisibility(); // re-evaluate in case HasResults was already true
                 _lastNumberingFixes = numberingFixes;
@@ -100,53 +95,25 @@ namespace ImageCollectionTool.ViewModels
         }
 
         // Deletes the higher-numbered image from each selected pair.
-        // Unselected pairs are kept in the main folder; their staging copies are removed.
         [RelayCommand]
         private void DeleteDuplicates()
         {
             try
             {
-                var toDelete = DuplicatePairs.Where(p => p.IsSelected).ToList();
-                var toKeep   = DuplicatePairs.Where(p => !p.IsSelected).ToList();
-
-                foreach (var pair in toDelete)
+                foreach (var pair in DuplicatePairs.Where(p => p.IsSelected).ToList())
                 {
                     int num1 = ImageMatcher.GetImageNumber(pair.FileName1);
                     int num2 = ImageMatcher.GetImageNumber(pair.FileName2);
 
                     // Keep the lower-numbered image; delete the higher-numbered one.
                     string pathToDelete = num1 >= num2 ? pair.Path1 : pair.Path2;
-                    string pathToKeep   = pathToDelete == pair.Path1 ? pair.Path2 : pair.Path1;
-
-                    string stagedToDelete = Path.Combine(_lastDuplicatesFolder, GetStagingFileName(pathToDelete, ScanSubfolders));
-                    string stagedToKeep   = Path.Combine(_lastDuplicatesFolder, GetStagingFileName(pathToKeep,   ScanSubfolders));
-
-                    // Delete from the staging folder and the original source folder.
-                    if (File.Exists(stagedToDelete))
-                    {
-                        File.Delete(stagedToDelete);
-                        if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
-                    }
-                    if (File.Exists(stagedToKeep)) File.Delete(stagedToKeep);
-                }
-
-                // Remove staging copies for unselected pairs — originals are left untouched.
-                foreach (var pair in toKeep)
-                {
-                    string copy1 = Path.Combine(_lastDuplicatesFolder, GetStagingFileName(pair.Path1, ScanSubfolders));
-                    string copy2 = Path.Combine(_lastDuplicatesFolder, GetStagingFileName(pair.Path2, ScanSubfolders));
-                    if (File.Exists(copy1)) File.Delete(copy1);
-                    if (File.Exists(copy2)) File.Delete(copy2);
+                    if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
                 }
 
                 // Unsubscribe all pairs and clear the collection in one operation.
                 foreach (var pair in DuplicatePairs)
                     pair.PropertyChanged -= OnPairSelectionChanged;
                 DuplicatePairs.Clear();
-
-                // Remove the staging folder if it's now empty.
-                if (Directory.Exists(_lastDuplicatesFolder) && !Directory.EnumerateFiles(_lastDuplicatesFolder).Any())
-                    Directory.Delete(_lastDuplicatesFolder);
 
                 UpdateDeleteState();
 
@@ -198,8 +165,7 @@ namespace ImageCollectionTool.ViewModels
 
                 if (ScanSubfolders)
                 {
-                    // Update the last entry in each affected keyword group to show the rename confirmation.
-                    // For simplicity, append a summary to NumberingText (reused as a status line here).
+                    // In subfolder mode NumberingText isn't used, so repurpose it as a status line.
                     NumberingText = $"> Renamed {_lastNumberingFixes.Count} file(s) to fix numbering.";
                 }
                 else

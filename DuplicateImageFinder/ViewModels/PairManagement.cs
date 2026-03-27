@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
 
 namespace ImageCollectionTool.ViewModels
@@ -36,17 +35,6 @@ namespace ImageCollectionTool.ViewModels
             HasDuplicates = DuplicatePairs.Count > 0;
             CanDeleteDuplicates = DuplicatePairs.Any(p => p.IsSelected);
             OnPropertyChanged(nameof(DeleteSelectedLabel));
-        }
-
-        // Deletes the staging folder on app close so it doesn't linger between sessions.
-        public void Cleanup()
-        {
-            try
-            {
-                if (Directory.Exists(_lastDuplicatesFolder))
-                    Directory.Delete(_lastDuplicatesFolder, true);
-            }
-            catch { /* Best-effort — don't block shutdown. */ }
         }
     }
 }

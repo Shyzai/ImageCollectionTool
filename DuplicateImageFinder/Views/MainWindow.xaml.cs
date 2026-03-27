@@ -17,11 +17,5 @@ namespace ImageCollectionTool
                 vm.RunCommand.Execute(null);
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
-        {
-            if (DataContext is MainViewModel vm)
-                vm.Cleanup();
-            base.OnClosing(e);
-        }
     }
 }

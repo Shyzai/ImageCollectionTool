@@ -20,7 +20,7 @@ namespace ImageCollectionTool.ViewModels
         // Runs on a background thread; must not touch UI or observable properties.
         private static (string SearchSummary, string NumberingText, List<KeywordNumberingResult> KeywordNumberings,
             List<(string Path1, string Path2, int GoodMatches)> Duplicates,
-            string DuplicatesFolder, List<(string OldPath, int NewNumber)> NumberingFixes)
+            List<(string OldPath, int NewNumber)> NumberingFixes)
             RunAnalysis(string targetFolder, string keyword, bool scanSubfolders, bool checkNumbering, IProgress<string>? progress = null)
         {
             List<(string Path1, string Path2, int GoodMatches)> duplicates = [];
@@ -51,22 +51,12 @@ namespace ImageCollectionTool.ViewModels
                 (numberingText, numberingFixes) = EvaluateNumbering(files);
             }
 
-            // Clear any leftover staging folder from a previous run before creating a fresh one.
-            string duplicatesFolder = Path.Combine(targetFolder, scanSubfolders ? "Potential_Duplicates" : $"Potential_{keyword}_Duplicates");
-            if (Directory.Exists(duplicatesFolder))
-                Directory.Delete(duplicatesFolder, true);
-
             if (files.Length > 1)
-            {
-                Directory.CreateDirectory(duplicatesFolder);
-                duplicates = FindDuplicateImages(files, duplicatesFolder, scanSubfolders, progress);
-            }
+                duplicates = FindDuplicateImages(files, progress);
             else if (!scanSubfolders)
-            {
                 numberingText += "\nNot enough images to check for duplicates.";
-            }
 
-            return (searchSummary, numberingText, keywordNumberings, duplicates, duplicatesFolder, numberingFixes);
+            return (searchSummary, numberingText, keywordNumberings, duplicates, numberingFixes);
         }
 
         // Groups files by keyword prefix (everything before the last '_') and runs EvaluateNumbering per group.
@@ -171,42 +161,14 @@ namespace ImageCollectionTool.ViewModels
             return name[..(underscoreIdx + 1)] + suffix;
         }
 
-        // Copies duplicate pairs into the staging folder and returns the list of pairs.
-        // In subfolder mode, staging filenames are prefixed with their parent folder name to avoid collisions.
+        // Filters sequence variants from duplicate results and returns the remaining pairs.
         private static List<(string Path1, string Path2, int GoodMatches)> FindDuplicateImages(
-            string[] files, string duplicatesFolder, bool useSubfolderPrefix, IProgress<string>? progress = null)
+            string[] files, IProgress<string>? progress = null)
         {
-            var results = ImageMatcher.FindDuplicates(files, progress: progress)
+            return ImageMatcher.FindDuplicates(files, progress: progress)
                 .Where(r => !(Path.GetDirectoryName(r.Path1) == Path.GetDirectoryName(r.Path2) &&
                               GetSequenceBase(Path.GetFileName(r.Path1)) == GetSequenceBase(Path.GetFileName(r.Path2))))
                 .ToList();
-
-            if (results.Count == 0)
-            {
-                Directory.Delete(duplicatesFolder);
-                return results;
-            }
-
-            foreach (var (path1, path2, _) in results)
-            {
-                string staged1 = Path.Combine(duplicatesFolder, GetStagingFileName(path1, useSubfolderPrefix));
-                string staged2 = Path.Combine(duplicatesFolder, GetStagingFileName(path2, useSubfolderPrefix));
-
-                if (!File.Exists(staged1)) File.Copy(path1, staged1);
-                if (!File.Exists(staged2)) File.Copy(path2, staged2);
-            }
-
-            return results;
-        }
-
-        // Returns the filename to use in the staging folder.
-        // In subfolder mode, prefixes with the immediate parent folder name to avoid collisions.
-        internal static string GetStagingFileName(string originalPath, bool useSubfolderPrefix)
-        {
-            string fileName = Path.GetFileName(originalPath);
-            if (!useSubfolderPrefix) return fileName;
-            string parentFolder = Path.GetFileName(Path.GetDirectoryName(originalPath) ?? "") ?? "";
-            return string.IsNullOrEmpty(parentFolder) ? fileName : parentFolder + "__" + fileName;
         }
 
         // Keeps the drive root and the final folder name, replacing intermediate segments with "...".

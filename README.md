@@ -4,13 +4,25 @@ Tool for helping organize collections of images.
 
 ## Features
 
+### Scan Modes
+
+**Keyword mode** (default): scans a single folder for files matching `Keyword_*.*` and checks that they are sequentially numbered.
+
+**Subfolder mode**: scans all subfolders recursively and compares every image found. No keyword is required. Optionally checks numbering per keyword group across all subfolders.
+
 ### Numbering Check
-Verifies images follow the naming pattern `Name_1`, `Name_2`, etc. Sequence variants (`Name_1a`, `Name_1b`, ... up to `Name_1z`) are also supported and treated as a single numbered entry. Reports any missing numbers and can automatically rename files to fill the gaps.
+Verifies images follow the naming pattern `Name_1`, `Name_2`, etc. Sequence variants (`Name_1a`, `Name_1b`, ... up to `Name_1z`) are supported and treated as a single numbered entry. Reports any missing numbers and can automatically rename files to fill the gaps.
+
+In subfolder mode, numbering is checked per keyword group and results are displayed grouped by keyword. Groups with issues are highlighted.
 
 ### Duplicate Detection
 Detects duplicate images using perceptual hashing (pHash) for fast candidate filtering, followed by ORB feature matching (Hamming distance) for verification. Detected pairs are shown as cards in the output panel with thumbnail previews and a match count.
 
-All pairs are selected by default. Click a card to toggle its selection. The **Delete Selected** button removes the higher-numbered file from each selected pair. If a pair has already been manually removed from the staging folder, it is skipped and the original is left untouched. The staging folder is cleaned up automatically when the app is closed.
+All pairs are selected by default. Click a card to toggle its selection. The **Delete Selected** button removes the higher-numbered file from each selected pair.
+
+Click the scale icon on a pair card to open a **side-by-side comparison window** showing both images at full quality. The window is sized proportionally to the images, up to a capped size.
+
+Sequence variants (e.g. `Name_1a` and `Name_1b`) in the same folder are never flagged as duplicates.
 
 ## Platform
 

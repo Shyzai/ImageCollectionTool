@@ -7,30 +7,6 @@ namespace DuplicateImageFinder.Tests
     {
         private static string[] Paths(params string[] fullPaths) => fullPaths;
 
-        // --- GetStagingFileName ---
-
-        [Fact]
-        public void GetStagingFileName_NoPrefix_ReturnsFilenameOnly()
-        {
-            string result = MainViewModel.GetStagingFileName(@"C:\folder\kw_1.jpg", useSubfolderPrefix: false);
-            Assert.Equal("kw_1.jpg", result);
-        }
-
-        [Fact]
-        public void GetStagingFileName_WithPrefix_IncludesParentFolder()
-        {
-            string result = MainViewModel.GetStagingFileName(@"C:\root\subfolder\kw_1.jpg", useSubfolderPrefix: true);
-            Assert.Equal("subfolder__kw_1.jpg", result);
-        }
-
-        [Fact]
-        public void GetStagingFileName_SameFilename_DifferentFolders_ProduceDifferentNames()
-        {
-            string a = MainViewModel.GetStagingFileName(@"C:\root\folder1\img_1.jpg", useSubfolderPrefix: true);
-            string b = MainViewModel.GetStagingFileName(@"C:\root\folder2\img_1.jpg", useSubfolderPrefix: true);
-            Assert.NotEqual(a, b);
-        }
-
         // --- EvaluateNumberingByKeyword ---
 
         [Fact]

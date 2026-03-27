@@ -17,7 +17,6 @@ namespace ImageCollectionTool.ViewModels
         private string _targetFolder = "";
 
         // Retained so the action buttons can act on results from the most recent Run.
-        private string _lastDuplicatesFolder = "";
         private string _lastKeyword = "";
         private List<(string OldPath, int NewNumber)> _lastNumberingFixes = [];
 

@@ -2,6 +2,17 @@
 
 Tool for helping organize collections of images.
 
+## Getting Started
+
+1. Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+2. Clone the repository and run:
+
+```
+dotnet run --project DuplicateImageFinder
+```
+
+All other dependencies are restored automatically via NuGet.
+
 ## Features
 
 ### Scan Modes

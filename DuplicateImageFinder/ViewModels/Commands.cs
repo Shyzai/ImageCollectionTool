@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using CommunityToolkit.Mvvm.Input;
@@ -42,30 +43,47 @@ namespace ImageCollectionTool.ViewModels
             try
             {
                 if (string.IsNullOrEmpty(_targetFolder)) throw new Exception("Folder was not selected.");
-                if (string.IsNullOrWhiteSpace(CommonWords)) throw new Exception("Common word required");
+                if (!ScanSubfolders && string.IsNullOrWhiteSpace(CommonWords)) throw new Exception("Common word required");
 
                 // Capture UI-bound values before switching to the background thread.
-                string keyword = CommonWords;
-                string folder = _targetFolder;
-                bool findDuplicates = FindDuplicates;
+                string keyword       = CommonWords;
+                string folder        = _targetFolder;
+                bool scanSubfolders  = ScanSubfolders;
+                bool checkNumbering  = CheckSubfolderNumbering;
 
                 _lastKeyword = keyword;
                 ErrorMessage = "";
                 IsRunEnabled = false;
-                ProgressText = "Scanning files...";
 
-                var progress = new Progress<string>(msg => ProgressText = msg);
+                // Clean up the staging folder from the previous run if the target folder changed.
+                if (Directory.Exists(_lastDuplicatesFolder))
+                    Directory.Delete(_lastDuplicatesFolder, true);
 
-                var (searchSummary, numberingText, duplicates, duplicatesFolder, numberingFixes) =
-                    await Task.Run(() => RunAnalysis(folder, keyword, findDuplicates, progress));
+                using var ellipsisCts = new CancellationTokenSource();
+                _ = CycleProgressTextAsync("Scanning files", ellipsisCts.Token);
+
+                var progress = new Progress<string>(msg =>
+                {
+                    ellipsisCts.Cancel();
+                    ProgressText = msg;
+                });
+
+                var (searchSummary, numberingText, keywordNumberings, duplicates, duplicatesFolder, numberingFixes) =
+                    await Task.Run(() => RunAnalysis(folder, keyword, scanSubfolders, checkNumbering, progress));
 
                 SearchSummary = searchSummary;
                 NumberingText = numberingText;
-                HasResults = true;
-                DuplicatesWereChecked = findDuplicates;
+                _lastScanSubfolders = scanSubfolders;
+                _lastCheckSubfolderNumbering = checkNumbering;
                 _lastDuplicatesFolder = duplicatesFolder;
+                HasResults = true;
+                NotifyVisibility(); // re-evaluate in case HasResults was already true
                 _lastNumberingFixes = numberingFixes;
                 CanFixNumbering = numberingFixes.Count > 0;
+
+                KeywordNumberings.Clear();
+                foreach (var r in keywordNumberings)
+                    KeywordNumberings.Add(r);
 
                 var pairs = duplicates.Select(d => new DuplicatePairViewModel(d.Path1, d.Path2, d.GoodMatches));
                 ReplacePairs(pairs);
@@ -98,28 +116,25 @@ namespace ImageCollectionTool.ViewModels
 
                     // Keep the lower-numbered image; delete the higher-numbered one.
                     string pathToDelete = num1 >= num2 ? pair.Path1 : pair.Path2;
-                    string nameToDelete = Path.GetFileName(pathToDelete);
+                    string pathToKeep   = pathToDelete == pair.Path1 ? pair.Path2 : pair.Path1;
 
-                    string pathToKeep = pathToDelete == pair.Path1 ? pair.Path2 : pair.Path1;
-                    string nameToKeep = Path.GetFileName(pathToKeep);
-
-                    string duplicatesCopyToDelete = Path.Combine(_lastDuplicatesFolder, nameToDelete);
-                    string duplicatesCopyToKeep   = Path.Combine(_lastDuplicatesFolder, nameToKeep);
+                    string stagedToDelete = Path.Combine(_lastDuplicatesFolder, GetStagingFileName(pathToDelete, ScanSubfolders));
+                    string stagedToKeep   = Path.Combine(_lastDuplicatesFolder, GetStagingFileName(pathToKeep,   ScanSubfolders));
 
                     // Delete from the staging folder and the original source folder.
-                    if (File.Exists(duplicatesCopyToDelete))
+                    if (File.Exists(stagedToDelete))
                     {
-                        File.Delete(duplicatesCopyToDelete);
+                        File.Delete(stagedToDelete);
                         if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
                     }
-                    if (File.Exists(duplicatesCopyToKeep)) File.Delete(duplicatesCopyToKeep);
+                    if (File.Exists(stagedToKeep)) File.Delete(stagedToKeep);
                 }
 
                 // Remove staging copies for unselected pairs — originals are left untouched.
                 foreach (var pair in toKeep)
                 {
-                    string copy1 = Path.Combine(_lastDuplicatesFolder, pair.FileName1);
-                    string copy2 = Path.Combine(_lastDuplicatesFolder, pair.FileName2);
+                    string copy1 = Path.Combine(_lastDuplicatesFolder, GetStagingFileName(pair.Path1, ScanSubfolders));
+                    string copy2 = Path.Combine(_lastDuplicatesFolder, GetStagingFileName(pair.Path2, ScanSubfolders));
                     if (File.Exists(copy1)) File.Delete(copy1);
                     if (File.Exists(copy2)) File.Delete(copy2);
                 }
@@ -136,11 +151,26 @@ namespace ImageCollectionTool.ViewModels
                 UpdateDeleteState();
 
                 // Re-evaluate numbering against the current file state after deletions.
-                var files = Directory.GetFiles(_targetFolder, _lastKeyword + "_*.*");
-                var (numberingText, numberingFixes) = EvaluateNumbering(files);
-                NumberingText = numberingText;
-                _lastNumberingFixes = numberingFixes;
-                CanFixNumbering = numberingFixes.Count > 0;
+                if (ScanSubfolders && CheckSubfolderNumbering)
+                {
+                    var allFiles = Directory.GetFiles(_targetFolder, "*.*", SearchOption.AllDirectories)
+                        .Where(f => s_imageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                        .ToArray();
+                    var (newResults, newFixes) = EvaluateNumberingByKeyword(allFiles);
+                    KeywordNumberings.Clear();
+                    foreach (var r in newResults)
+                        KeywordNumberings.Add(r);
+                    _lastNumberingFixes = newFixes;
+                    CanFixNumbering = newFixes.Count > 0;
+                }
+                else if (!ScanSubfolders)
+                {
+                    var files = Directory.GetFiles(_targetFolder, _lastKeyword + "_*.*");
+                    var (numberingText, numberingFixes) = EvaluateNumbering(files);
+                    NumberingText = numberingText;
+                    _lastNumberingFixes = numberingFixes;
+                    CanFixNumbering = numberingFixes.Count > 0;
+                }
             }
             catch (Exception ex)
             {
@@ -166,13 +196,35 @@ namespace ImageCollectionTool.ViewModels
                     File.Move(oldPath, Path.Combine(dir, newName));
                 }
 
-                NumberingText += $"\n> Renamed {_lastNumberingFixes.Count} file(s) to fix numbering.";
+                if (ScanSubfolders)
+                {
+                    // Update the last entry in each affected keyword group to show the rename confirmation.
+                    // For simplicity, append a summary to NumberingText (reused as a status line here).
+                    NumberingText = $"> Renamed {_lastNumberingFixes.Count} file(s) to fix numbering.";
+                }
+                else
+                {
+                    NumberingText += $"\n> Renamed {_lastNumberingFixes.Count} file(s) to fix numbering.";
+                }
+
                 _lastNumberingFixes = [];
                 CanFixNumbering = false;
             }
             catch (Exception ex)
             {
                 ErrorMessage = "Fix numbering failed: " + ex.Message;
+            }
+        }
+        // Cycles "baseText.", "baseText..", "baseText..." on the UI thread until cancelled.
+        private async Task CycleProgressTextAsync(string baseText, CancellationToken ct)
+        {
+            int frame = 0;
+            while (!ct.IsCancellationRequested)
+            {
+                ProgressText = baseText + new string('.', frame % 3 + 1);
+                frame++;
+                try { await Task.Delay(400, ct); }
+                catch (OperationCanceledException) { break; }
             }
         }
     }

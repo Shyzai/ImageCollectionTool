@@ -29,7 +29,7 @@ namespace ImageCollectionTool
         public static List<(string Path1, string Path2, int GoodMatches)> FindDuplicates(
             string[] imagePaths,
             int hammingThreshold = 10,
-            int minFeatureMatches = 15,
+            int minFeatureMatches = 40,
             IProgress<string>? progress = null)
         {
             // Phase 1: compute pHash for all images in parallel

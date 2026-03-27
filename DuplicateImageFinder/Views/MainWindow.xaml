@@ -45,7 +45,7 @@
                 <!-- Folder -->
                 <TextBlock DockPanel.Dock="Top" Text="FOLDER" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
                 <TextBlock DockPanel.Dock="Top" Text="{Binding FolderText}" TextTrimming="CharacterEllipsis" Margin="0 0 0 8" />
-                <ui:Button DockPanel.Dock="Top" Content="Select Folder" Icon="{ui:SymbolIcon FolderOpen24}"
+                <ui:Button DockPanel.Dock="Top" Content="Select Folder" Icon="{ui:SymbolIcon Open24}"
                            HorizontalAlignment="Stretch" Margin="0 0 0 16"
                            Command="{Binding SelectFolderCommand}" />
 
@@ -54,26 +54,33 @@
                 <!-- Keyword -->
                 <TextBlock DockPanel.Dock="Top" Text="KEYWORD" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
                 <TextBox DockPanel.Dock="Top" Margin="0 0 0 16"
+                         IsEnabled="{Binding ShowKeywordSection}"
                          Text="{Binding CommonWords, UpdateSourceTrigger=PropertyChanged}"
                          Name="commonWordsTextBox"
                          KeyDown="commonWordsTextBox_KeyDown" />
 
-                <!-- Checkbox -->
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0 0 0 24">
-                    <CheckBox IsChecked="{Binding FindDuplicates}" VerticalAlignment="Center" />
-                    <TextBlock Text="Check for duplicates" Margin="8 0 0 0" VerticalAlignment="Center" />
+                <!-- Scan subfolders -->
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0 0 0 8">
+                    <CheckBox IsChecked="{Binding ScanSubfolders}" VerticalAlignment="Center" />
+                    <TextBlock Text="Scan all subfolders" Margin="8 0 0 0" VerticalAlignment="Center" />
                 </StackPanel>
+
+                <!-- Check numbering (disabled when not in subfolder mode) -->
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0 0 0 16"
+                            IsEnabled="{Binding ShowSubfolderNumberingOption}">
+                    <CheckBox IsChecked="{Binding CheckSubfolderNumbering}" VerticalAlignment="Center" />
+                    <TextBlock Text="Check numbering" Margin="8 0 0 0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Progress (always reserves space; shows text while running) -->
+                <TextBlock DockPanel.Dock="Top" Text="{Binding ProgressText}"
+                           FontSize="11" Opacity="0.6" Margin="0 0 0 8" TextWrapping="Wrap" />
 
                 <!-- Run -->
                 <ui:Button DockPanel.Dock="Top" Content="Run" Icon="{ui:SymbolIcon Play24}"
-                           Appearance="Primary" HorizontalAlignment="Stretch" Margin="0 0 0 8"
+                           Appearance="Primary" HorizontalAlignment="Stretch" Margin="0 0 0 0"
                            IsEnabled="{Binding IsRunEnabled}"
                            Command="{Binding RunCommand}" />
-
-                <!-- Progress (visible while running) -->
-                <TextBlock DockPanel.Dock="Top" Text="{Binding ProgressText}"
-                           Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
-                           FontSize="11" Opacity="0.6" Margin="0 0 0 16" TextWrapping="Wrap" />
 
                 <Separator DockPanel.Dock="Top" Margin="0 0 0 16" />
 
@@ -134,9 +141,37 @@
                     <TextBlock Text="SEARCH" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
                     <TextBlock Text="{Binding SearchSummary}" Margin="0 0 0 20" />
 
-                    <!-- Numbering -->
-                    <TextBlock Text="NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
-                    <TextBlock Text="{Binding NumberingText}" Margin="0 0 0 20" TextWrapping="Wrap" />
+                    <!-- Numbering (keyword mode only) -->
+                    <StackPanel Visibility="{Binding ShowKeywordNumbering, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                        <TextBlock Text="{Binding NumberingText}" Margin="0 0 0 20" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!-- Numbering (subfolder mode) -->
+                    <StackPanel Visibility="{Binding ShowSubfolderNumberingPanel, Converter={StaticResource BoolToVis}}" Margin="0 0 0 20">
+                        <TextBlock Text="KEYWORD NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                        <ItemsControl ItemsSource="{Binding KeywordNumberings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:KeywordNumberingResult}">
+                                    <StackPanel Margin="0 0 0 8">
+                                        <TextBlock Text="{Binding Keyword}" FontWeight="SemiBold" FontSize="14"
+                                                   Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" />
+                                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0 2 0 0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasIssues}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
 
                     <!-- Duplicates section -->
                     <StackPanel Visibility="{Binding ShowDuplicatesSection, Converter={StaticResource BoolToVis}}">
@@ -182,9 +217,9 @@
                                                 <!-- Row 1: Name 1 (left) -->
                                                 <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding FileName1}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                    <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="6 0 0 0" Padding="4 2"
+                                                    <ui:Button Icon="{ui:SymbolIcon Open24}" Margin="6 0 0 0" Padding="4 2"
                                                                Appearance="Transparent" VerticalAlignment="Center"
-                                                               Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path1}" />
+                                                               Command="{Binding OpenImageCommand}" CommandParameter="{Binding Path1}" />
                                                 </StackPanel>
                                                 <!-- Row 2: Match count (center) -->
                                                 <TextBlock Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -193,9 +228,9 @@
                                                 </TextBlock>
                                                 <!-- Row 3: Name 2 (right) -->
                                                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                    <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="0 0 6 0" Padding="4 2"
+                                                    <ui:Button Icon="{ui:SymbolIcon Open24}" Margin="0 0 6 0" Padding="4 2"
                                                                Appearance="Transparent" VerticalAlignment="Center"
-                                                               Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path2}" />
+                                                               Command="{Binding OpenImageCommand}" CommandParameter="{Binding Path2}" />
                                                     <TextBlock Text="{Binding FileName2}" VerticalAlignment="Center" />
                                                 </StackPanel>
                                             </Grid>

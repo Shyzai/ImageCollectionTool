@@ -89,6 +89,21 @@ namespace DuplicateImageFinder.Tests
         }
 
         [Fact]
+        public void IsRunning_FalseByDefault()
+        {
+            var vm = new MainViewModel();
+            Assert.False(vm.IsRunning);
+        }
+
+        [Fact]
+        public void IsRunning_TrueWhenIsRunEnabledFalse()
+        {
+            var vm = new MainViewModel();
+            vm.IsRunEnabled = false;
+            Assert.True(vm.IsRunning);
+        }
+
+        [Fact]
         public void ReplacePairs_ClearsOldPairs_LabelResets()
         {
             var vm = new MainViewModel();

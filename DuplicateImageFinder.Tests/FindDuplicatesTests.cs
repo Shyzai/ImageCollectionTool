@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO;
 using ImageCollectionTool;
 using Xunit;
@@ -61,6 +62,27 @@ namespace DuplicateImageFinder.Tests
         {
             var results = ImageMatcher.FindDuplicates([]);
             Assert.Empty(results);
+        }
+
+        [Fact]
+        public void WithCandidates_ProgressIsReported()
+        {
+            // Uses a synchronous IProgress<string> to avoid threading issues with Progress<T>.
+            var messages = new ConcurrentBag<string>();
+            var progress = new SyncProgress(messages);
+
+            ImageMatcher.FindDuplicates(
+                [_fixture.Image1, _fixture.Image1Copy],
+                hammingThreshold: 64,
+                minFeatureMatches: 0,
+                progress: progress);
+
+            Assert.NotEmpty(messages);
+        }
+
+        private sealed class SyncProgress(ConcurrentBag<string> messages) : IProgress<string>
+        {
+            public void Report(string value) => messages.Add(value);
         }
     }
 }

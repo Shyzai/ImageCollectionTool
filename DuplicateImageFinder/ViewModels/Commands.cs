@@ -105,9 +105,13 @@ namespace ImageCollectionTool.ViewModels
                     int num1 = ImageMatcher.GetImageNumber(pair.FileName1);
                     int num2 = ImageMatcher.GetImageNumber(pair.FileName2);
 
-                    // Keep the lower-numbered image; delete the higher-numbered one.
+                    // Keep the lower-numbered image; send the higher-numbered one to the recycle bin.
                     string pathToDelete = num1 >= num2 ? pair.Path1 : pair.Path2;
-                    if (File.Exists(pathToDelete)) File.Delete(pathToDelete);
+                    if (File.Exists(pathToDelete))
+                        Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
+                            pathToDelete,
+                            Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                            Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
                 }
 
                 // Unsubscribe all pairs and clear the collection in one operation.

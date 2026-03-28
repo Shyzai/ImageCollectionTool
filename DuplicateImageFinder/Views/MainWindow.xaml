@@ -123,140 +123,171 @@
             <Rectangle Grid.Column="1" Fill="{DynamicResource ControlStrokeColorDefaultBrush}" VerticalAlignment="Stretch" Margin="0 8" />
 
             <!-- Output panel -->
-            <ScrollViewer Grid.Column="2" Margin="8 12 6 12" VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="0 0 14 0">
+            <Grid Grid.Column="2" Margin="8 12 6 12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-                    <!-- Inline error message -->
-                    <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
-                            Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
-                            BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                            BorderThickness="1" CornerRadius="6" Padding="12 8" Margin="0 0 0 16">
-                        <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
-                                   Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
-                    </Border>
+                <!-- Inline error message -->
+                <Border Grid.Row="0"
+                        Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
+                        Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
+                        BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                        BorderThickness="1" CornerRadius="6" Padding="12 8" Margin="0 0 6 8">
+                    <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                </Border>
 
-                <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+                <!-- Results tabs -->
+                <TabControl Grid.Row="1"
+                            Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+                    <TabControl.ItemContainerStyle>
+                        <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+                            <Setter Property="Background" Value="#6e3d3d50" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Foreground" Value="#34e424" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TabControl.ItemContainerStyle>
 
-                    <!-- Search summary -->
-                    <TextBlock Text="SEARCH" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
-                    <TextBlock Text="{Binding SearchSummary}" Margin="0 0 0 20" />
+                    <!-- Summary tab: search info + numbering -->
+                    <TabItem Header="Summary">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+                            <StackPanel Margin="4 12 14 8">
 
-                    <!-- Numbering (keyword mode only) -->
-                    <StackPanel Visibility="{Binding ShowKeywordNumbering, Converter={StaticResource BoolToVis}}"
-                                Margin="0 0 0 20">
-                        <TextBlock Text="NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
-                        <TextBlock Text="{Binding NumberingText}" TextWrapping="Wrap" Margin="0 0 0 2" />
-                        <TextBlock Text="{Binding NumberingNumbers}" TextWrapping="Wrap" />
-                    </StackPanel>
+                                <TextBlock Text="SEARCH" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                                <TextBlock Text="{Binding SearchSummary}" Margin="0 0 0 20" />
 
-                    <!-- Numbering (subfolder mode) -->
-                    <StackPanel Visibility="{Binding ShowSubfolderNumberingPanel, Converter={StaticResource BoolToVis}}" Margin="0 0 0 20">
-                        <TextBlock Text="KEYWORD NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
-                        <ItemsControl ItemsSource="{Binding KeywordNumberings}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:KeywordNumberingResult}">
-                                    <StackPanel Margin="0 0 0 8">
-                                        <TextBlock Text="{Binding Keyword}" FontWeight="SemiBold" FontSize="14"
-                                                   Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" />
-                                        <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0 2 0 0">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding HasIssues}" Value="True">
-                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                                <!-- Numbering (keyword mode) -->
+                                <StackPanel Visibility="{Binding ShowKeywordNumbering, Converter={StaticResource BoolToVis}}"
+                                            Margin="0 0 0 20">
+                                    <TextBlock Text="NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                                    <TextBlock Text="{Binding NumberingText}" TextWrapping="Wrap" Margin="0 0 0 2" />
+                                    <TextBlock Text="{Binding NumberingNumbers}" TextWrapping="Wrap" />
+                                </StackPanel>
 
-                    <!-- Duplicates section -->
-                    <StackPanel Visibility="{Binding ShowDuplicatesSection, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="POTENTIAL DUPLICATES" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
-                        <TextBlock Text="No duplicates found"
-                                   Visibility="{Binding ShowNoDuplicatesMessage, Converter={StaticResource BoolToVis}}"
-                                   Margin="0 0 0 8" />
-                        <ItemsControl ItemsSource="{Binding DuplicatePairs}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:DuplicatePairViewModel}">
-                                    <Border Margin="0 0 4 8" CornerRadius="6" BorderThickness="2" Cursor="Hand">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-                                                <Setter Property="BorderBrush" Value="Transparent" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColorPrimaryBrush}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <Border.InputBindings>
-                                            <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleSelectionCommand}" />
-                                        </Border.InputBindings>
-                                        <Grid Margin="10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <!-- Image 1 -->
-                                            <Border Grid.Column="0" Width="120" Height="90" CornerRadius="4" ClipToBounds="True">
-                                                <Image Source="{Binding Thumbnail1}" Stretch="UniformToFill" />
-                                            </Border>
-                                            <!-- Center: 3 rows -->
-                                            <Grid Grid.Column="1" Margin="12 0">
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="*" />
-                                                    <RowDefinition Height="*" />
-                                                    <RowDefinition Height="*" />
-                                                </Grid.RowDefinitions>
-                                                <!-- Row 1: Name 1 (left) -->
-                                                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding FileName1}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                    <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="6 0 0 0" Padding="4 2"
-                                                               Appearance="Transparent" VerticalAlignment="Center"
-                                                               Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path1}" />
-                                                </StackPanel>
-                                                <!-- Row 2: Match count + compare button (center) -->
-                                                <StackPanel Grid.Row="1" Orientation="Horizontal"
-                                                            HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <TextBlock Opacity="0.6" FontSize="12" VerticalAlignment="Center">
-                                                        <Run Text="{Binding GoodMatches, Mode=OneWay}" /><Run Text=" feature matches" />
+                                <!-- Numbering (subfolder mode) -->
+                                <StackPanel Visibility="{Binding ShowSubfolderNumberingPanel, Converter={StaticResource BoolToVis}}"
+                                            Margin="0 0 0 20">
+                                    <TextBlock Text="KEYWORD NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
+                                    <ItemsControl ItemsSource="{Binding KeywordNumberings}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:KeywordNumberingResult}">
+                                                <StackPanel Margin="0 0 0 8">
+                                                    <TextBlock Text="{Binding Keyword}" FontWeight="SemiBold" FontSize="14"
+                                                               Foreground="{DynamicResource SystemAccentColorPrimaryBrush}" />
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0 2 0 0">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasIssues}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
                                                     </TextBlock>
-                                                    <ui:Button Icon="{ui:SymbolIcon ScaleFit24}" Margin="8 0 0 0" Padding="4 2"
-                                                               Appearance="Transparent" VerticalAlignment="Center"
-                                                               Command="{Binding CompareImagesCommand}"
-                                                               ToolTip="Compare side by side" />
                                                 </StackPanel>
-                                                <!-- Row 3: Name 2 (right) -->
-                                                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                    <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="0 0 6 0" Padding="4 2"
-                                                               Appearance="Transparent" VerticalAlignment="Center"
-                                                               Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path2}" />
-                                                    <TextBlock Text="{Binding FileName2}" VerticalAlignment="Center" />
-                                                </StackPanel>
-                                            </Grid>
-                                            <!-- Image 2 -->
-                                            <Border Grid.Column="2" Width="120" Height="90" CornerRadius="4" ClipToBounds="True">
-                                                <Image Source="{Binding Thumbnail2}" Stretch="UniformToFill" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- Duplicates tab -->
+                    <TabItem Header="Duplicates">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+                            <StackPanel Margin="4 12 14 8">
+
+                                <TextBlock Text="No duplicates found"
+                                           Visibility="{Binding ShowNoDuplicatesMessage, Converter={StaticResource BoolToVis}}"
+                                           Margin="0 0 0 8" />
+                                <ItemsControl ItemsSource="{Binding DuplicatePairs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:DuplicatePairViewModel}">
+                                            <Border Margin="0 0 4 8" CornerRadius="6" BorderThickness="2" Cursor="Hand">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+                                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColorPrimaryBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Border.InputBindings>
+                                                    <MouseBinding MouseAction="LeftClick" Command="{Binding ToggleSelectionCommand}" />
+                                                </Border.InputBindings>
+                                                <Grid Margin="10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <!-- Image 1 -->
+                                                    <Border Grid.Column="0" Width="120" Height="90" CornerRadius="4" ClipToBounds="True">
+                                                        <Image Source="{Binding Thumbnail1}" Stretch="UniformToFill" />
+                                                    </Border>
+                                                    <!-- Center: 3 rows -->
+                                                    <Grid Grid.Column="1" Margin="12 0">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="*" />
+                                                            <RowDefinition Height="*" />
+                                                            <RowDefinition Height="*" />
+                                                        </Grid.RowDefinitions>
+                                                        <!-- Row 1: Name 1 (left) -->
+                                                        <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding FileName1}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                            <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="6 0 0 0" Padding="4 2"
+                                                                       Appearance="Transparent" VerticalAlignment="Center"
+                                                                       Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path1}" />
+                                                        </StackPanel>
+                                                        <!-- Row 2: Match count + compare button (center) -->
+                                                        <StackPanel Grid.Row="1" Orientation="Horizontal"
+                                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Opacity="0.6" FontSize="12" VerticalAlignment="Center">
+                                                                <Run Text="{Binding GoodMatches, Mode=OneWay}" /><Run Text=" feature matches" />
+                                                            </TextBlock>
+                                                            <ui:Button Icon="{ui:SymbolIcon ScaleFit24}" Margin="8 0 0 0" Padding="4 2"
+                                                                       Appearance="Transparent" VerticalAlignment="Center"
+                                                                       Command="{Binding CompareImagesCommand}"
+                                                                       ToolTip="Compare side by side" />
+                                                        </StackPanel>
+                                                        <!-- Row 3: Name 2 (right) -->
+                                                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                            <ui:Button Icon="{ui:SymbolIcon FolderOpen24}" Margin="0 0 6 0" Padding="4 2"
+                                                                       Appearance="Transparent" VerticalAlignment="Center"
+                                                                       Command="{Binding OpenInExplorerCommand}" CommandParameter="{Binding Path2}" />
+                                                            <TextBlock Text="{Binding FileName2}" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <!-- Image 2 -->
+                                                    <Border Grid.Column="2" Width="120" Height="90" CornerRadius="4" ClipToBounds="True">
+                                                        <Image Source="{Binding Thumbnail2}" Stretch="UniformToFill" />
+                                                    </Border>
+                                                </Grid>
                                             </Border>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
-                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
 
-                </StackPanel>
-            </ScrollViewer>
+                </TabControl>
+            </Grid>
         </Grid>
     </Grid>
 </ui:FluentWindow>

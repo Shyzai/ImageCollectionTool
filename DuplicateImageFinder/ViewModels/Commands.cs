@@ -23,7 +23,7 @@ namespace ImageCollectionTool.ViewModels
                 {
                     _configFile.AppSettings.Settings["Search Directory"].Value = fbd.SelectedPath;
                     _targetFolder = fbd.SelectedPath;
-                    FolderText = "Current Folder: " + ShortenPath(fbd.SelectedPath);
+                    FolderText = ShortenPath(fbd.SelectedPath);
 
                     _configFile.Save(System.Configuration.ConfigurationSaveMode.Modified);
                     System.Configuration.ConfigurationManager.RefreshSection(_configFile.AppSettings.SectionInformation.Name);
@@ -40,6 +40,7 @@ namespace ImageCollectionTool.ViewModels
         [RelayCommand]
         private async Task Run()
         {
+            CancellationTokenSource? ellipsisCts = null;
             try
             {
                 if (string.IsNullOrEmpty(_targetFolder)) throw new Exception("Folder was not selected.");
@@ -53,9 +54,17 @@ namespace ImageCollectionTool.ViewModels
 
                 _lastKeyword = keyword;
                 ErrorMessage = "";
+                HasResults = false;
+                SearchSummary = "";
+                NumberingText = "";
+                NumberingNumbers = "";
+                KeywordNumberings.Clear();
+                ReplacePairs([]);
+                CanFixNumbering = false;
+                CanDeleteDuplicates = false;
                 IsRunEnabled = false;
 
-                using var ellipsisCts = new CancellationTokenSource();
+                ellipsisCts = new CancellationTokenSource();
                 _ = CycleProgressTextAsync("Scanning files", ellipsisCts.Token);
 
                 var progress = new Progress<string>(msg =>
@@ -64,13 +73,15 @@ namespace ImageCollectionTool.ViewModels
                     ProgressText = msg;
                 });
 
-                var (searchSummary, numberingText, keywordNumberings, duplicates, numberingFixes) =
+                var (searchSummary, numberingText, numberingNumbers, keywordNumberings, duplicates, numberingFixes, hadFiles) =
                     await Task.Run(() => RunAnalysis(folder, keyword, scanSubfolders, checkNumbering, progress));
 
                 SearchSummary = searchSummary;
                 NumberingText = numberingText;
+                NumberingNumbers = numberingNumbers;
                 _lastScanSubfolders = scanSubfolders;
                 _lastCheckSubfolderNumbering = checkNumbering;
+                _lastHadFiles = hadFiles;
                 HasResults = true;
                 NotifyVisibility(); // re-evaluate in case HasResults was already true
                 _lastNumberingFixes = numberingFixes;
@@ -89,6 +100,7 @@ namespace ImageCollectionTool.ViewModels
             }
             finally
             {
+                ellipsisCts?.Cancel();
                 ProgressText = "";
                 IsRunEnabled = true;
             }
@@ -136,9 +148,14 @@ namespace ImageCollectionTool.ViewModels
                 }
                 else if (!ScanSubfolders)
                 {
-                    var files = Directory.GetFiles(_targetFolder, _lastKeyword + "_*.*");
-                    var (numberingText, numberingFixes) = EvaluateNumbering(files);
+                    var numberedFiles = Directory.GetFiles(_targetFolder, _lastKeyword + "_*.*");
+                    var exactFiles    = Directory.GetFiles(_targetFolder, _lastKeyword + ".*")
+                        .Where(f => Path.GetFileNameWithoutExtension(f).Equals(_lastKeyword, StringComparison.OrdinalIgnoreCase))
+                        .ToArray();
+                    var files = numberedFiles.Concat(exactFiles).OrderBy(f => f).ToArray();
+                    var (numberingText, numberingNumbers, numberingFixes) = EvaluateNumbering(files);
                     NumberingText = numberingText;
+                    NumberingNumbers = numberingNumbers;
                     _lastNumberingFixes = numberingFixes;
                     CanFixNumbering = numberingFixes.Count > 0;
                 }
@@ -174,7 +191,8 @@ namespace ImageCollectionTool.ViewModels
                 }
                 else
                 {
-                    NumberingText += $"\n> Renamed {_lastNumberingFixes.Count} file(s) to fix numbering.";
+                    NumberingText    = $"> Renamed {_lastNumberingFixes.Count} file(s) to fix numbering.";
+                    NumberingNumbers = "";
                 }
 
                 _lastNumberingFixes = [];

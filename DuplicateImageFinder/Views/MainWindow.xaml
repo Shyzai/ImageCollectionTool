@@ -142,9 +142,11 @@
                     <TextBlock Text="{Binding SearchSummary}" Margin="0 0 0 20" />
 
                     <!-- Numbering (keyword mode only) -->
-                    <StackPanel Visibility="{Binding ShowKeywordNumbering, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Visibility="{Binding ShowKeywordNumbering, Converter={StaticResource BoolToVis}}"
+                                Margin="0 0 0 20">
                         <TextBlock Text="NUMBERING" FontSize="10" Opacity="0.5" Margin="0 0 0 6" />
-                        <TextBlock Text="{Binding NumberingText}" Margin="0 0 0 20" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding NumberingText}" TextWrapping="Wrap" Margin="0 0 0 2" />
+                        <TextBlock Text="{Binding NumberingNumbers}" TextWrapping="Wrap" />
                     </StackPanel>
 
                     <!-- Numbering (subfolder mode) -->

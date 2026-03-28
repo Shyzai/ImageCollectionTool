@@ -18,13 +18,15 @@ namespace ImageCollectionTool.ViewModels
 
         // Performs file discovery, numbering checks, and duplicate detection.
         // Runs on a background thread; must not touch UI or observable properties.
-        private static (string SearchSummary, string NumberingText, List<KeywordNumberingResult> KeywordNumberings,
+        private static (string SearchSummary, string NumberingText, string NumberingNumbers,
+            List<KeywordNumberingResult> KeywordNumberings,
             List<(string Path1, string Path2, int GoodMatches)> Duplicates,
-            List<(string OldPath, int NewNumber)> NumberingFixes)
+            List<(string OldPath, int NewNumber)> NumberingFixes, bool HadFiles)
             RunAnalysis(string targetFolder, string keyword, bool scanSubfolders, bool checkNumbering, IProgress<string>? progress = null)
         {
             List<(string Path1, string Path2, int GoodMatches)> duplicates = [];
             string numberingText = "";
+            string numberingNumbers = "";
             var keywordNumberings = new List<KeywordNumberingResult>();
             List<(string OldPath, int NewNumber)> numberingFixes = [];
 
@@ -45,22 +47,28 @@ namespace ImageCollectionTool.ViewModels
             }
             else
             {
-                files = Directory.GetFiles(targetFolder, keyword + "_*.*");
+                // Include both numbered files (keyword_1.jpg) and exact-name files (keyword.jpg).
+                var numberedFiles = Directory.GetFiles(targetFolder, keyword + "_*.*");
+                var exactFiles    = Directory.GetFiles(targetFolder, keyword + ".*")
+                    .Where(f => Path.GetFileNameWithoutExtension(f).Equals(keyword, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                files = numberedFiles.Concat(exactFiles).OrderBy(f => f).ToArray();
                 searchSummary = $"Searching in: {targetFolder}\nFound {files.Length} files with the word '{keyword}'";
 
-                (numberingText, numberingFixes) = EvaluateNumbering(files);
+                if (files.Length > 0)
+                    (numberingText, numberingNumbers, numberingFixes) = EvaluateNumbering(files);
             }
 
             if (files.Length > 1)
                 duplicates = FindDuplicateImages(files, progress);
-            else if (!scanSubfolders)
-                numberingText += "\nNot enough images to check for duplicates.";
 
-            return (searchSummary, numberingText, keywordNumberings, duplicates, numberingFixes);
+            return (searchSummary, numberingText, numberingNumbers, keywordNumberings, duplicates, numberingFixes, files.Length > 0);
         }
 
-        // Groups files by keyword prefix (everything before the last '_') and runs EvaluateNumbering per group.
+        // Groups files by (folder, keyword stem) and runs EvaluateNumbering per group.
         // Files that don't follow the keyword_number pattern are skipped.
+        // When the same keyword stem appears in more than one folder the display label includes
+        // the immediate parent folder name so the user can tell the groups apart.
         internal static (List<KeywordNumberingResult> Results, List<(string OldPath, int NewNumber)> AllFixes)
             EvaluateNumberingByKeyword(string[] files)
         {
@@ -73,14 +81,27 @@ namespace ImageCollectionTool.ViewModels
                 {
                     string name = Path.GetFileNameWithoutExtension(f);
                     int idx = name.LastIndexOf('_');
-                    return idx >= 0 ? name[..idx] : name;
+                    string stem = idx >= 0 ? name[..idx] : name;
+                    return (Dir: Path.GetDirectoryName(f) ?? "", Stem: stem);
                 });
 
-            foreach (var group in groups.OrderBy(g => g.Key))
+            // Detect stems that appear in more than one folder so we can qualify their labels.
+            var ambiguousStems = groups
+                .GroupBy(g => g.Key.Stem)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToHashSet();
+
+            foreach (var group in groups.OrderBy(g => g.Key.Dir).ThenBy(g => g.Key.Stem))
             {
-                var (text, fixes) = EvaluateNumbering(group.ToArray());
+                string keyword = ambiguousStems.Contains(group.Key.Stem)
+                    ? Path.GetFileName(group.Key.Dir) + Path.DirectorySeparatorChar + group.Key.Stem
+                    : group.Key.Stem;
+
+                var (label, numbers, fixes) = EvaluateNumbering(group.ToArray());
                 bool hasIssues = fixes.Count > 0;
-                results.Add(new KeywordNumberingResult(group.Key, text, hasIssues));
+                string text = hasIssues ? label + "\n" + numbers : label;
+                results.Add(new KeywordNumberingResult(keyword, text, hasIssues));
                 allFixes.AddRange(fixes);
             }
 
@@ -88,7 +109,9 @@ namespace ImageCollectionTool.ViewModels
         }
 
         // Scans files in the folder and computes the numbering state and any fixes needed.
-        internal static (string NumberingText, List<(string OldPath, int NewNumber)> NumberingFixes)
+        // Returns a label ("Missing number(s):" or "All images are correctly numbered"),
+        // a separate numbers string ("1, 2, 3" or ""), and the list of rename fixes.
+        internal static (string Label, string Numbers, List<(string OldPath, int NewNumber)> NumberingFixes)
             EvaluateNumbering(string[] files)
         {
             int[] referenceNums  = new int[files.Length];
@@ -101,13 +124,31 @@ namespace ImageCollectionTool.ViewModels
 
                 if (s_sequenceFirstRegex.IsMatch(fileName))
                 {
-                    imageNameNums[i] = ImageMatcher.GetImageNumber(fileName.Remove(fileName.IndexOf(".") - 1, 1));
-                    referenceNums[i] = i + 1 - numIgnoredImages;
+                    int num = ImageMatcher.GetImageNumber(fileName.Remove(fileName.IndexOf(".") - 1, 1));
+                    imageNameNums[i] = num;
+                    if (i > 0 && num == imageNameNums[i - 1])
+                    {
+                        // The plain-numbered file (e.g. kw_1.jpg) already occupies this slot;
+                        // treat the 'a' variant as a sequence follower rather than a new entry.
+                        referenceNums[i] = referenceNums[i - 1];
+                        numIgnoredImages++;
+                    }
+                    else
+                    {
+                        referenceNums[i] = i + 1 - numIgnoredImages;
+                    }
                 }
                 else if (s_sequenceFollowingRegex.IsMatch(fileName))
                 {
                     imageNameNums[i] = imageNameNums[i - 1];
                     referenceNums[i] = referenceNums[i - 1];
+                    numIgnoredImages++;
+                }
+                else if (ImageMatcher.GetImageNumber(fileName) < 0)
+                {
+                    // No underscore (e.g. keyword.jpg) — part of the set but not numbered; skip in sequence.
+                    imageNameNums[i] = -1;
+                    referenceNums[i] = -1;
                     numIgnoredImages++;
                 }
                 else
@@ -132,20 +173,19 @@ namespace ImageCollectionTool.ViewModels
             for (int i = 0; i < Math.Min(extras.Count, sortedMissing.Count); i++)
                 numberingFixes.Add((extras[i].Path, sortedMissing[i]));
 
-            string numberingText;
+            string label, numbers;
             if (missingNums.Count > 0)
             {
-                var sb = new StringBuilder("Missing number(s):\n");
-                foreach (int n in missingNums)
-                    sb.Append(n).Append(", ");
-                numberingText = sb.ToString().TrimEnd(',', ' ');
+                label   = "Missing number(s):";
+                numbers = string.Join(", ", missingNums.OrderBy(n => n));
             }
             else
             {
-                numberingText = "All images are correctly numbered";
+                label   = "All images are correctly numbered";
+                numbers = "";
             }
 
-            return (numberingText, numberingFixes);
+            return (label, numbers, numberingFixes);
         }
 
         // Returns the base name with any trailing sequence letter stripped, e.g. "kw_1a" → "kw_1", "kw_2" → "kw_2".

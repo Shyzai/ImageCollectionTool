@@ -23,10 +23,11 @@ namespace ImageCollectionTool.ViewModels
         // Snapshot of the mode active when Run was last pressed — drives results panel visibility.
         private bool _lastScanSubfolders = false;
         private bool _lastCheckSubfolderNumbering = false;
+        private bool _lastHadFiles = false;
 
         // --- Observable properties (source generator emits the public PascalCase counterparts) ---
 
-        [ObservableProperty] private string _folderText = "Current Folder: ";
+        [ObservableProperty] private string _folderText = "No folder selected";
         [ObservableProperty] private string _commonWords = "";
         [ObservableProperty] private bool _scanSubfolders = false;
         [ObservableProperty] private bool _checkSubfolderNumbering = false;
@@ -42,6 +43,7 @@ namespace ImageCollectionTool.ViewModels
         // Populated after each Run to drive the structured output panel.
         [ObservableProperty] private string _searchSummary = "";
         [ObservableProperty] private string _numberingText = "";
+        [ObservableProperty] private string _numberingNumbers = "";
         [ObservableProperty] private bool _hasResults = false;
 
         // Set when any operation fails; shown inline in the output panel instead of a popup.
@@ -54,7 +56,7 @@ namespace ImageCollectionTool.ViewModels
 
         // Computed visibility helpers — updated whenever their dependencies change.
         public bool ShowDuplicatesSection        => HasResults;
-        public bool ShowNoDuplicatesMessage      => HasResults && !HasDuplicates;
+        public bool ShowNoDuplicatesMessage      => HasResults && !HasDuplicates && _lastHadFiles;
         public bool ShowKeywordSection           => !ScanSubfolders;
         public bool ShowSubfolderNumberingOption => ScanSubfolders;
         // Results panel uses snapshots from the last Run, not live checkbox state.
@@ -95,7 +97,7 @@ namespace ImageCollectionTool.ViewModels
                 // Load the persisted search directory from App.config on startup.
                 _configFile = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                 _targetFolder = _configFile.AppSettings.Settings["Search Directory"]?.Value ?? "";
-                FolderText = "Current Folder: " + ShortenPath(_targetFolder);
+                FolderText = string.IsNullOrEmpty(_targetFolder) ? "No folder selected" : ShortenPath(_targetFolder);
             }
             catch (Exception ex)
             {

@@ -73,7 +73,7 @@ namespace ImageCollectionTool.ViewModels
                     ProgressText = msg;
                 });
 
-                var (searchSummary, numberingText, numberingNumbers, keywordNumberings, duplicates, numberingFixes, hadFiles) =
+                var (searchSummary, numberingText, numberingNumbers, keywordNumberings, duplicates, numberingFixes) =
                     await Task.Run(() => RunAnalysis(folder, keyword, scanSubfolders, checkNumbering, progress));
 
                 SearchSummary = searchSummary;
@@ -81,7 +81,6 @@ namespace ImageCollectionTool.ViewModels
                 NumberingNumbers = numberingNumbers;
                 _lastScanSubfolders = scanSubfolders;
                 _lastCheckSubfolderNumbering = checkNumbering;
-                _lastHadFiles = hadFiles;
                 HasResults = true;
                 NotifyVisibility(); // re-evaluate in case HasResults was already true
                 _lastNumberingFixes = numberingFixes;
@@ -134,7 +133,9 @@ namespace ImageCollectionTool.ViewModels
                 UpdateDeleteState();
 
                 // Re-evaluate numbering against the current file state after deletions.
-                if (ScanSubfolders && CheckSubfolderNumbering)
+                // Use _last* snapshots so the branch matches what was shown when Run completed,
+                // regardless of whether the user toggled checkboxes since then.
+                if (_lastScanSubfolders && _lastCheckSubfolderNumbering)
                 {
                     var allFiles = Directory.GetFiles(_targetFolder, "*.*", SearchOption.AllDirectories)
                         .Where(f => s_imageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
@@ -146,7 +147,7 @@ namespace ImageCollectionTool.ViewModels
                     _lastNumberingFixes = newFixes;
                     CanFixNumbering = newFixes.Count > 0;
                 }
-                else if (!ScanSubfolders)
+                else if (!_lastScanSubfolders && !string.IsNullOrEmpty(_lastKeyword))
                 {
                     var numberedFiles = Directory.GetFiles(_targetFolder, _lastKeyword + "_*.*");
                     var exactFiles    = Directory.GetFiles(_targetFolder, _lastKeyword + ".*")
@@ -172,7 +173,11 @@ namespace ImageCollectionTool.ViewModels
         {
             try
             {
-                foreach (var (oldPath, newNumber) in _lastNumberingFixes)
+                var fixes = _lastNumberingFixes;
+                _lastNumberingFixes = [];
+                CanFixNumbering = false;
+
+                foreach (var (oldPath, newNumber) in fixes)
                 {
                     string dir  = Path.GetDirectoryName(oldPath)!;
                     string name = Path.GetFileNameWithoutExtension(oldPath);
@@ -184,19 +189,24 @@ namespace ImageCollectionTool.ViewModels
                     File.Move(oldPath, Path.Combine(dir, newName));
                 }
 
-                if (ScanSubfolders)
+                if (_lastScanSubfolders)
                 {
-                    // In subfolder mode NumberingText isn't used, so repurpose it as a status line.
-                    NumberingText = $"> Renamed {_lastNumberingFixes.Count} file(s) to fix numbering.";
+                    // Refresh the subfolder numbering panel to reflect the renamed files.
+                    var allFiles = Directory.GetFiles(_targetFolder, "*.*", SearchOption.AllDirectories)
+                        .Where(f => s_imageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                        .ToArray();
+                    var (newResults, newFixes) = EvaluateNumberingByKeyword(allFiles);
+                    KeywordNumberings.Clear();
+                    foreach (var r in newResults)
+                        KeywordNumberings.Add(r);
+                    _lastNumberingFixes = newFixes;
+                    CanFixNumbering = newFixes.Count > 0;
                 }
                 else
                 {
-                    NumberingText    = $"> Renamed {_lastNumberingFixes.Count} file(s) to fix numbering.";
+                    NumberingText    = $"> Renamed {fixes.Count} file(s) to fix numbering.";
                     NumberingNumbers = "";
                 }
-
-                _lastNumberingFixes = [];
-                CanFixNumbering = false;
             }
             catch (Exception ex)
             {

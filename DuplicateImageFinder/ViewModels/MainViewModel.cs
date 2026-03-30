@@ -23,7 +23,6 @@ namespace ImageCollectionTool.ViewModels
         // Snapshot of the mode active when Run was last pressed — drives results panel visibility.
         private bool _lastScanSubfolders = false;
         private bool _lastCheckSubfolderNumbering = false;
-        private bool _lastHadFiles = false;
 
         // --- Observable properties (source generator emits the public PascalCase counterparts) ---
 
@@ -56,7 +55,7 @@ namespace ImageCollectionTool.ViewModels
 
         // Computed visibility helpers — updated whenever their dependencies change.
         public bool ShowDuplicatesSection        => HasResults;
-        public bool ShowNoDuplicatesMessage      => HasResults && !HasDuplicates && _lastHadFiles;
+        public bool ShowNoDuplicatesMessage      => HasResults && !HasDuplicates;
         public bool ShowKeywordSection           => !ScanSubfolders;
         public bool ShowSubfolderNumberingOption => ScanSubfolders;
         // Results panel uses snapshots from the last Run, not live checkbox state.

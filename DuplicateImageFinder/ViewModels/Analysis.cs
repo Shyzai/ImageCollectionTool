@@ -21,7 +21,7 @@ namespace ImageCollectionTool.ViewModels
         private static (string SearchSummary, string NumberingText, string NumberingNumbers,
             List<KeywordNumberingResult> KeywordNumberings,
             List<(string Path1, string Path2, int GoodMatches)> Duplicates,
-            List<(string OldPath, int NewNumber)> NumberingFixes, bool HadFiles)
+            List<(string OldPath, int NewNumber)> NumberingFixes)
             RunAnalysis(string targetFolder, string keyword, bool scanSubfolders, bool checkNumbering, IProgress<string>? progress = null)
         {
             List<(string Path1, string Path2, int GoodMatches)> duplicates = [];
@@ -62,7 +62,7 @@ namespace ImageCollectionTool.ViewModels
             if (files.Length > 1)
                 duplicates = FindDuplicateImages(files, progress);
 
-            return (searchSummary, numberingText, numberingNumbers, keywordNumberings, duplicates, numberingFixes, files.Length > 0);
+            return (searchSummary, numberingText, numberingNumbers, keywordNumberings, duplicates, numberingFixes);
         }
 
         // Groups files by (folder, keyword stem) and runs EvaluateNumbering per group.

@@ -21,13 +21,21 @@ All other dependencies are restored automatically via NuGet.
 
 **Subfolder mode**: scans all subfolders recursively and compares every image found. No keyword is required. Optionally checks numbering per keyword group across all subfolders.
 
+### Output Panel
+Results are split across two tabs:
+
+- **Summary** — search details and numbering results
+- **Duplicates** — detected duplicate pairs
+
 ### Numbering Check
 Verifies images follow the naming pattern `Name_1`, `Name_2`, etc. Sequence variants (`Name_1a`, `Name_1b`, ... up to `Name_1z`) are supported and treated as a single numbered entry. Reports any missing numbers and can automatically rename files to fill the gaps.
 
-In subfolder mode, numbering is checked per keyword group and results are displayed grouped by keyword. Groups with issues are highlighted.
+In subfolder mode, numbering is checked per keyword group. Groups with issues are listed first and highlighted; if all groups are correctly numbered a single summary message is shown above the keyword list.
+
+Applying a numbering fix clears any pending duplicate results — re-run after fixing to get fresh duplicate detection against the renamed files.
 
 ### Duplicate Detection
-Detects duplicate images using perceptual hashing (pHash) for fast candidate filtering, followed by ORB feature matching (Hamming distance) for verification. Detected pairs are shown as cards in the output panel with thumbnail previews and a match count.
+Detects duplicate images using perceptual hashing (pHash) for fast candidate filtering, followed by ORB feature matching (Hamming distance) for verification. Detected pairs are shown as cards in the Duplicates tab with thumbnail previews and a match count.
 
 All pairs are selected by default. Click a card to toggle its selection. The **Delete Selected** button removes the higher-numbered file from each selected pair.
 

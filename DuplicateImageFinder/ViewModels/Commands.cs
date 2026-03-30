@@ -189,6 +189,9 @@ namespace ImageCollectionTool.ViewModels
                     File.Move(oldPath, Path.Combine(dir, newName));
                 }
 
+                // Filenames changed — any stored duplicate paths are now stale.
+                ReplacePairs([]);
+
                 if (_lastScanSubfolders)
                 {
                     // Refresh the subfolder numbering panel to reflect the renamed files.

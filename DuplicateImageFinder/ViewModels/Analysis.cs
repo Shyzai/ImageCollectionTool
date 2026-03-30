@@ -105,6 +105,7 @@ namespace ImageCollectionTool.ViewModels
                 allFixes.AddRange(fixes);
             }
 
+            results.Sort((a, b) => b.HasIssues.CompareTo(a.HasIssues));
             return (results, allFixes);
         }
 

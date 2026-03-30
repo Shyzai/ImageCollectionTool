@@ -61,6 +61,8 @@ namespace ImageCollectionTool.ViewModels
         // Results panel uses snapshots from the last Run, not live checkbox state.
         public bool ShowSubfolderNumberingPanel  => HasResults && _lastScanSubfolders && _lastCheckSubfolderNumbering;
         public bool ShowKeywordNumbering         => HasResults && !_lastScanSubfolders;
+        public bool AllKeywordsCorrect           => ShowSubfolderNumberingPanel && KeywordNumberings.Count > 0
+                                                    && KeywordNumberings.All(k => !k.HasIssues);
 
         partial void OnHasResultsChanged(bool value)              => NotifyVisibility();
         partial void OnHasDuplicatesChanged(bool value)           => NotifyVisibility();
@@ -74,6 +76,7 @@ namespace ImageCollectionTool.ViewModels
             OnPropertyChanged(nameof(ShowSubfolderNumberingOption));
             OnPropertyChanged(nameof(ShowSubfolderNumberingPanel));
             OnPropertyChanged(nameof(ShowKeywordNumbering));
+            OnPropertyChanged(nameof(AllKeywordsCorrect));
         }
 
         // The duplicate pair cards shown in the output panel.
@@ -91,6 +94,8 @@ namespace ImageCollectionTool.ViewModels
 
         public MainViewModel()
         {
+            KeywordNumberings.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AllKeywordsCorrect));
+
             try
             {
                 // Load the persisted search directory from App.config on startup.

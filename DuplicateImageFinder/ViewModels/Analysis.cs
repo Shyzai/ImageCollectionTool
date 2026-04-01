@@ -69,13 +69,21 @@ namespace ImageCollectionTool.ViewModels
         }
 
         // Groups files by (folder, keyword stem) and runs EvaluateNumbering per group.
-        // Files that don't follow the keyword_number pattern are skipped.
+        // Unnumbered files (e.g. keyword.jpg) are joined into their matching numbered group.
         // Each group is labelled as "folder\keyword" so the containing folder is always visible.
         internal static (List<KeywordNumberingResult> Results, List<(string OldPath, int NewNumber)> AllFixes)
             EvaluateNumberingByKeyword(string[] files)
         {
             var results = new List<KeywordNumberingResult>();
             var allFixes = new List<(string OldPath, int NewNumber)>();
+
+            // Pre-index unnumbered files (e.g. keyword.jpg) by (dir, name) so they can be
+            // added to any matching numbered group without a second pass over all files.
+            var unnumbered = files
+                .Where(f => ImageMatcher.GetImageNumber(Path.GetFileName(f)) < 0)
+                .ToLookup(f => (
+                    Dir:  (Path.GetDirectoryName(f) ?? "").ToLowerInvariant(),
+                    Stem: Path.GetFileNameWithoutExtension(f).ToLowerInvariant()));
 
             var groups = files
                 .Where(f => ImageMatcher.GetImageNumber(Path.GetFileName(f)) >= 0)
@@ -92,10 +100,9 @@ namespace ImageCollectionTool.ViewModels
 
             foreach (var group in groups.OrderBy(g => g.Key.Dir).ThenBy(g => g.Key.Stem))
             {
-                // Sort once — reused for both EvaluateNumbering and the display label.
-                // The first file in sorted order is the lowest-numbered file (e.g. keyword_1),
-                // which gives a predictable casing for the label regardless of filesystem order.
-                var    sortedGroup = group.OrderBy(f => f).ToArray();
+                // Merge any unnumbered sibling (e.g. keyword.jpg) into this group, then sort once —
+                // reused for both EvaluateNumbering and the display label.
+                var    sortedGroup = group.Concat(unnumbered[group.Key]).OrderBy(f => f).ToArray();
                 string firstFile   = sortedGroup[0];
                 string firstName   = Path.GetFileNameWithoutExtension(firstFile);
                 int    firstIdx    = firstName.LastIndexOf('_');

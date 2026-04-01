@@ -97,6 +97,35 @@ namespace DuplicateImageFinder.Tests
         }
 
         [Fact]
+        public void EvaluateNumberingByKeyword_UnnumberedFile_WithNumberedSibling_GetsAssignedNextSlot()
+        {
+            // keyword.jpg + keyword_1.jpg → keyword.jpg should be flagged and fixed to keyword_2.jpg
+            var files = Paths(
+                @"C:\root\keyword.jpg",
+                @"C:\root\keyword_1.jpg");
+
+            var (results, fixes) = MainViewModel.EvaluateNumberingByKeyword(files);
+
+            Assert.Single(results);
+            Assert.True(results[0].HasIssues);
+            Assert.Single(fixes);
+            Assert.EndsWith("keyword.jpg", fixes[0].OldPath);
+            Assert.Equal(2, fixes[0].NewNumber);
+        }
+
+        [Fact]
+        public void EvaluateNumberingByKeyword_UnnumberedFile_Alone_NotFlagged()
+        {
+            // keyword.jpg with no numbered siblings — no group to join, should be ignored
+            var files = Paths(@"C:\root\keyword.jpg");
+
+            var (results, fixes) = MainViewModel.EvaluateNumberingByKeyword(files);
+
+            Assert.Empty(results);
+            Assert.Empty(fixes);
+        }
+
+        [Fact]
         public void EvaluateNumberingByKeyword_SameKeyword_DifferentFolders_TreatedAsSeparateGroups()
         {
             // pet_1 in Dogs and pet_1 in Cats — both are correctly numbered independently.

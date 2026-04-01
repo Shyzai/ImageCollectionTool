@@ -179,7 +179,10 @@ namespace ImageCollectionTool.ViewModels
                         string dir  = Path.GetDirectoryName(f.OldPath)!;
                         string name = Path.GetFileNameWithoutExtension(f.OldPath);
                         string ext  = Path.GetExtension(f.OldPath);
-                        string newName = name.Substring(0, name.LastIndexOf('_') + 1) + f.NewNumber + ext;
+                        int    idx  = name.LastIndexOf('_');
+                        string newName = idx >= 0
+                            ? name.Substring(0, idx + 1) + f.NewNumber + ext
+                            : name + "_" + f.NewNumber + ext;
                         return Path.Combine(dir, newName);
                     })
                     .Where(File.Exists)
@@ -201,9 +204,12 @@ namespace ImageCollectionTool.ViewModels
                     string name = Path.GetFileNameWithoutExtension(oldPath);
                     string ext  = Path.GetExtension(oldPath);
 
-                    // Replace everything after the last underscore with the new number.
+                    // Replace everything after the last underscore with the new number,
+                    // or append _N if the file has no underscore (e.g. keyword.jpg → keyword_2.jpg).
                     int underscoreIdx = name.LastIndexOf('_');
-                    string newName = name.Substring(0, underscoreIdx + 1) + newNumber + ext;
+                    string newName = underscoreIdx >= 0
+                        ? name.Substring(0, underscoreIdx + 1) + newNumber + ext
+                        : name + "_" + newNumber + ext;
                     File.Move(oldPath, Path.Combine(dir, newName));
                 }
 

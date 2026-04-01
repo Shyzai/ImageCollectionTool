@@ -87,43 +87,44 @@ namespace DuplicateImageFinder.Tests
         }
 
         [Fact]
-        public void UnnumberedFile_AloneWithNumbered_NoFixes()
+        public void UnnumberedFile_WithNumbered_GetsAssignedNextSlot()
         {
-            // kw.jpg has no number; kw_1.jpg and kw_2.jpg are correctly numbered — no gaps
-            var (label, numbers, fixes) = MainViewModel.EvaluateNumbering(Paths("kw.jpg", "kw_1.jpg", "kw_2.jpg"));
-            Assert.Equal("All images are correctly numbered", label);
-            Assert.Empty(numbers);
-            Assert.Empty(fixes);
-        }
-
-        [Fact]
-        public void UnnumberedFile_DoesNotCountAsMissingNumber()
-        {
-            // kw.jpg should not be flagged as a missing numbered entry
-            var (label, numbers, fixes) = MainViewModel.EvaluateNumbering(Paths("kw.jpg", "kw_1.jpg"));
-            Assert.Equal("All images are correctly numbered", label);
-            Assert.Empty(numbers);
-            Assert.Empty(fixes);
-        }
-
-        [Fact]
-        public void UnnumberedFile_GapStillDetected()
-        {
-            // kw.jpg is ignored for numbering; kw_1.jpg and kw_3.jpg have a gap at 2
-            var (_, numbers, fixes) = MainViewModel.EvaluateNumbering(Paths("kw.jpg", "kw_1.jpg", "kw_3.jpg"));
-            Assert.Contains("2", numbers);
+            // kw.jpg has no number; kw_1.jpg and kw_2.jpg occupy slots 1 and 2 — kw.jpg gets slot 3
+            var (_, _, fixes) = MainViewModel.EvaluateNumbering(Paths("kw.jpg", "kw_1.jpg", "kw_2.jpg"));
             Assert.Single(fixes);
+            Assert.EndsWith("kw.jpg", fixes[0].OldPath);
+            Assert.Equal(3, fixes[0].NewNumber);
+        }
+
+        [Fact]
+        public void UnnumberedFile_WithSingleNumbered_GetsNextSlot()
+        {
+            // kw.jpg + kw_1.jpg → should become kw_1.jpg + kw_2.jpg
+            var (_, _, fixes) = MainViewModel.EvaluateNumbering(Paths("kw.jpg", "kw_1.jpg"));
+            Assert.Single(fixes);
+            Assert.EndsWith("kw.jpg", fixes[0].OldPath);
             Assert.Equal(2, fixes[0].NewNumber);
         }
 
         [Fact]
-        public void UnnumberedFileOnly_NoFixes()
+        public void UnnumberedFile_FillsGapBeforeExtra()
         {
-            // Only an unnumbered file — nothing to number-check
-            var (label, numbers, fixes) = MainViewModel.EvaluateNumbering(Paths("kw.jpg"));
-            Assert.Equal("All images are correctly numbered", label);
-            Assert.Empty(numbers);
-            Assert.Empty(fixes);
+            // kw.jpg + kw_1.jpg + kw_3.jpg: gap at 2 — unnumbered file fills the gap, kw_3.jpg stays
+            var (_, numbers, fixes) = MainViewModel.EvaluateNumbering(Paths("kw.jpg", "kw_1.jpg", "kw_3.jpg"));
+            Assert.Contains("2", numbers);
+            Assert.Single(fixes);
+            Assert.EndsWith("kw.jpg", fixes[0].OldPath);
+            Assert.Equal(2, fixes[0].NewNumber);
+        }
+
+        [Fact]
+        public void UnnumberedFileOnly_GetsSlotOne()
+        {
+            // A lone unnumbered file should be flagged for renaming to slot 1
+            var (_, _, fixes) = MainViewModel.EvaluateNumbering(Paths("kw.jpg"));
+            Assert.Single(fixes);
+            Assert.EndsWith("kw.jpg", fixes[0].OldPath);
+            Assert.Equal(1, fixes[0].NewNumber);
         }
 
         [Fact]

@@ -156,10 +156,9 @@ namespace ImageCollectionTool.ViewModels
                 }
                 else if (ImageMatcher.GetImageNumber(fileName) < 0)
                 {
-                    // No underscore (e.g. keyword.jpg) — part of the set but not numbered; skip in sequence.
+                    // No number (e.g. keyword.jpg) — counts as a sequence entry that needs renaming.
                     imageNameNums[i] = -1;
-                    referenceNums[i] = -1;
-                    numIgnoredImages++;
+                    referenceNums[i] = i + 1 - numIgnoredImages;
                 }
                 else
                 {
@@ -173,7 +172,7 @@ namespace ImageCollectionTool.ViewModels
             int maxRef = files.Length - numIgnoredImages;
             var extras = new List<(string Path, int Num)>();
             for (int i = 0; i < files.Length; i++)
-                if (imageNameNums[i] > maxRef)
+                if (imageNameNums[i] > maxRef || imageNameNums[i] < 0)
                     extras.Add((files[i], imageNameNums[i]));
 
             extras.Sort((a, b) => a.Num.CompareTo(b.Num));

@@ -16,6 +16,11 @@ namespace ImageCollectionTool.ViewModels
 
         private static readonly string[] s_imageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".tiff"];
 
+        private static string[] GetAllImageFiles(string folder) =>
+            Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories)
+                .Where(f => s_imageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                .ToArray();
+
         // Performs file discovery, numbering checks, and duplicate detection.
         // Runs on a background thread; must not touch UI or observable properties.
         private static (string SearchSummary, string NumberingText, string NumberingNumbers,
@@ -35,9 +40,7 @@ namespace ImageCollectionTool.ViewModels
 
             if (scanSubfolders)
             {
-                files = Directory.GetFiles(targetFolder, "*.*", SearchOption.AllDirectories)
-                    .Where(f => s_imageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                    .ToArray();
+                files = GetAllImageFiles(targetFolder);
 
                 int subfolderCount = files.Select(f => Path.GetDirectoryName(f)).Distinct().Count();
                 searchSummary = $"Searching in: {targetFolder} (including subfolders)\nFound {files.Length} image(s) across {subfolderCount} folder(s)";

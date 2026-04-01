@@ -43,10 +43,12 @@ namespace ImageCollectionTool
             // Phase 1: pHash screening — cheap O(n²) filter
             List<string> paths = [..hashes.Keys];
             int n = paths.Count;
+            ulong[] hashValues = new ulong[n];
+            for (int k = 0; k < n; k++) hashValues[k] = hashes[paths[k]];
             List<(string, string)> candidates = new(n * (n - 1) / 2);
             for (int i = 0; i < n; i++)
                 for (int j = i + 1; j < n; j++)
-                    if (HammingDistance(hashes[paths[i]], hashes[paths[j]]) <= hammingThreshold)
+                    if (HammingDistance(hashValues[i], hashValues[j]) <= hammingThreshold)
                         candidates.Add((paths[i], paths[j]));
 
             progress?.Report($"Checking {candidates.Count} candidate pair(s)...");

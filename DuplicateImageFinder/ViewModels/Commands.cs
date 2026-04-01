@@ -111,7 +111,7 @@ namespace ImageCollectionTool.ViewModels
         {
             try
             {
-                foreach (var pair in DuplicatePairs.Where(p => p.IsSelected).ToList())
+                foreach (var pair in DuplicatePairs.Where(p => p.IsSelected))
                 {
                     int num1 = ImageMatcher.GetImageNumber(pair.FileName1);
                     int num2 = ImageMatcher.GetImageNumber(pair.FileName2);
@@ -137,10 +137,7 @@ namespace ImageCollectionTool.ViewModels
                 // regardless of whether the user toggled checkboxes since then.
                 if (_lastScanSubfolders && _lastCheckSubfolderNumbering)
                 {
-                    var allFiles = Directory.GetFiles(_targetFolder, "*.*", SearchOption.AllDirectories)
-                        .Where(f => s_imageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                        .ToArray();
-                    var (newResults, newFixes) = EvaluateNumberingByKeyword(allFiles);
+                    var (newResults, newFixes) = EvaluateNumberingByKeyword(GetAllImageFiles(_targetFolder));
                     KeywordNumberings.Clear();
                     foreach (var r in newResults)
                         KeywordNumberings.Add(r);
@@ -216,10 +213,7 @@ namespace ImageCollectionTool.ViewModels
                 if (_lastScanSubfolders)
                 {
                     // Refresh the subfolder numbering panel to reflect the renamed files.
-                    var allFiles = Directory.GetFiles(_targetFolder, "*.*", SearchOption.AllDirectories)
-                        .Where(f => s_imageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                        .ToArray();
-                    var (newResults, newFixes) = EvaluateNumberingByKeyword(allFiles);
+                    var (newResults, newFixes) = EvaluateNumberingByKeyword(GetAllImageFiles(_targetFolder));
                     KeywordNumberings.Clear();
                     foreach (var r in newResults)
                         KeywordNumberings.Add(r);

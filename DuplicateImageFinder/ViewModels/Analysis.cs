@@ -81,14 +81,26 @@ namespace ImageCollectionTool.ViewModels
                     string name = Path.GetFileNameWithoutExtension(f);
                     int idx = name.LastIndexOf('_');
                     string stem = idx >= 0 ? name[..idx] : name;
-                    return (Dir: Path.GetDirectoryName(f) ?? "", Stem: stem);
+                    // Normalize to lowercase so files that differ only in capitalization
+                    // (e.g. Pikachu_1.jpg / pikachu_2.jpg) are treated as the same group,
+                    // matching the case-insensitive behaviour of Directory.GetFiles in keyword mode.
+                    return (Dir: (Path.GetDirectoryName(f) ?? "").ToLowerInvariant(), Stem: stem.ToLowerInvariant());
                 });
 
             foreach (var group in groups.OrderBy(g => g.Key.Dir).ThenBy(g => g.Key.Stem))
             {
-                string keyword = Path.GetFileName(group.Key.Dir) + Path.DirectorySeparatorChar + group.Key.Stem;
+                // Sort once — reused for both EvaluateNumbering and the display label.
+                // The first file in sorted order is the lowest-numbered file (e.g. keyword_1),
+                // which gives a predictable casing for the label regardless of filesystem order.
+                var    sortedGroup = group.OrderBy(f => f).ToArray();
+                string firstFile   = sortedGroup[0];
+                string firstName   = Path.GetFileNameWithoutExtension(firstFile);
+                int    firstIdx    = firstName.LastIndexOf('_');
+                string displayStem = firstIdx >= 0 ? firstName[..firstIdx] : firstName;
+                string displayDir  = Path.GetFileName(Path.GetDirectoryName(firstFile) ?? "");
+                string keyword     = displayDir + Path.DirectorySeparatorChar + displayStem;
 
-                var (label, numbers, fixes) = EvaluateNumbering(group.ToArray());
+                var (label, numbers, fixes) = EvaluateNumbering(sortedGroup);
                 bool hasIssues = fixes.Count > 0;
                 string text = hasIssues ? label + "\n" + numbers : label;
                 results.Add(new KeywordNumberingResult(keyword, text, hasIssues));

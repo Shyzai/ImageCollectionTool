@@ -174,6 +174,27 @@ namespace ImageCollectionTool.ViewModels
             try
             {
                 var fixes = _lastNumberingFixes;
+
+                // Pre-flight: check all destinations before renaming anything.
+                var conflicts = fixes
+                    .Select(f =>
+                    {
+                        string dir  = Path.GetDirectoryName(f.OldPath)!;
+                        string name = Path.GetFileNameWithoutExtension(f.OldPath);
+                        string ext  = Path.GetExtension(f.OldPath);
+                        string newName = name.Substring(0, name.LastIndexOf('_') + 1) + f.NewNumber + ext;
+                        return Path.Combine(dir, newName);
+                    })
+                    .Where(File.Exists)
+                    .ToList();
+
+                if (conflicts.Count > 0)
+                {
+                    ErrorMessage = "Fix numbering cancelled — destination already exists:\n"
+                        + string.Join("\n", conflicts.Select(Path.GetFileName));
+                    return;
+                }
+
                 _lastNumberingFixes = [];
                 CanFixNumbering = false;
 

@@ -68,6 +68,22 @@ namespace DuplicateImageFinder.Tests
         }
 
         [Fact]
+        public void EvaluateNumberingByKeyword_UnsortedInput_NoFalseGaps()
+        {
+            // Directory.GetFiles gives no order guarantee; files must be sorted before evaluation.
+            var files = Paths(
+                @"C:\root\kw_3.jpg",
+                @"C:\root\kw_1.jpg",
+                @"C:\root\kw_2.jpg");
+
+            var (results, fixes) = MainViewModel.EvaluateNumberingByKeyword(files);
+
+            Assert.Single(results);
+            Assert.False(results[0].HasIssues);
+            Assert.Empty(fixes);
+        }
+
+        [Fact]
         public void EvaluateNumberingByKeyword_AllFilesWithoutPattern_ReturnsEmpty()
         {
             var files = Paths(

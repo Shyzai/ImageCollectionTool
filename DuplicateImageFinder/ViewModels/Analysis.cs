@@ -67,8 +67,7 @@ namespace ImageCollectionTool.ViewModels
 
         // Groups files by (folder, keyword stem) and runs EvaluateNumbering per group.
         // Files that don't follow the keyword_number pattern are skipped.
-        // When the same keyword stem appears in more than one folder the display label includes
-        // the immediate parent folder name so the user can tell the groups apart.
+        // Each group is labelled as "folder\keyword" so the containing folder is always visible.
         internal static (List<KeywordNumberingResult> Results, List<(string OldPath, int NewNumber)> AllFixes)
             EvaluateNumberingByKeyword(string[] files)
         {
@@ -85,18 +84,9 @@ namespace ImageCollectionTool.ViewModels
                     return (Dir: Path.GetDirectoryName(f) ?? "", Stem: stem);
                 });
 
-            // Detect stems that appear in more than one folder so we can qualify their labels.
-            var ambiguousStems = groups
-                .GroupBy(g => g.Key.Stem)
-                .Where(g => g.Count() > 1)
-                .Select(g => g.Key)
-                .ToHashSet();
-
             foreach (var group in groups.OrderBy(g => g.Key.Dir).ThenBy(g => g.Key.Stem))
             {
-                string keyword = ambiguousStems.Contains(group.Key.Stem)
-                    ? Path.GetFileName(group.Key.Dir) + Path.DirectorySeparatorChar + group.Key.Stem
-                    : group.Key.Stem;
+                string keyword = Path.GetFileName(group.Key.Dir) + Path.DirectorySeparatorChar + group.Key.Stem;
 
                 var (label, numbers, fixes) = EvaluateNumbering(group.ToArray());
                 bool hasIssues = fixes.Count > 0;
@@ -105,7 +95,11 @@ namespace ImageCollectionTool.ViewModels
                 allFixes.AddRange(fixes);
             }
 
-            results.Sort((a, b) => b.HasIssues.CompareTo(a.HasIssues));
+            results.Sort((a, b) =>
+            {
+                int byIssues = b.HasIssues.CompareTo(a.HasIssues);
+                return byIssues != 0 ? byIssues : string.Compare(a.Keyword, b.Keyword, StringComparison.OrdinalIgnoreCase);
+            });
             return (results, allFixes);
         }
 
